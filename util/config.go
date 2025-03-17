@@ -17,8 +17,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ConfigFilePath is the path to the .localpost configuration file.
-const ConfigFilePath = "./.localpost"
+// ConfigFilePath is the path to the .localpost-config file.
+const ConfigFilePath = "./.localpost-config"
 const DefaultRequestsDir = "requests"
 
 type Env struct {
@@ -52,7 +52,7 @@ type Request struct {
 	} `yaml:"set-env-var,omitempty"`
 }
 
-// GetConfig reads and returns the raw YAML content of .localpost.
+// GetConfig reads and returns the raw YAML content of .localpost-config
 // Returns an empty string if the file doesn’t exist, or an error if reading fails.
 func GetConfig() (string, error) {
 	data, err := os.ReadFile(ConfigFilePath)
@@ -65,7 +65,7 @@ func GetConfig() (string, error) {
 	return string(data), nil
 }
 
-// LoadEnv loads the .localpost configuration and returns the current environment.
+// LoadEnv loads the .localpost-config and returns the current environment.
 // Returns a zero Env and an error if parsing fails.
 func LoadEnv() (Env, error) {
 	data, err := GetConfig()
@@ -106,7 +106,7 @@ func LoadEnv() (Env, error) {
 	}, nil
 }
 
-// SetEnvName updates the current environment name in .localpost and returns the updated Env.
+// SetEnvName updates the current environment name in .localpost-config and returns the updated Env.
 func SetEnvName(envName string) (Env, error) {
 	data, err := GetConfig()
 	if err != nil {
@@ -142,7 +142,7 @@ func SetEnvName(envName string) (Env, error) {
 	}, nil
 }
 
-// SetEnvVar sets an environment variable for the current environment in .localpost.
+// SetEnvVar sets an environment variable for the current environment in .localpost-config
 // Returns the updated Env with the new variable set.
 func SetEnvVar(key, value string) (Env, error) {
 	data, err := GetConfig()
@@ -180,7 +180,7 @@ func SetEnvVar(key, value string) (Env, error) {
 	}, nil
 }
 
-// saveConfigFile marshals and writes a configFile struct to .localpost.
+// saveConfigFile marshals and writes a configFile struct to .localpost-config
 func saveConfigFile(config configFile) error {
 	data, err := yaml.Marshal(&config)
 	if err != nil {
@@ -190,30 +190,6 @@ func saveConfigFile(config configFile) error {
 		return fmt.Errorf("error writing to %s: %v", ConfigFilePath, err)
 	}
 	return nil
-}
-
-// ListRequestNames returns a list of request names from the requests directory for a given method.
-// Filters by method (e.g., "GET") and optional toComplete prefix.
-func ListRequestNames(method, toComplete string) ([]string, error) {
-	files, err := os.ReadDir(DefaultRequestsDir)
-	if err != nil {
-		return nil, fmt.Errorf("error reading requests directory %s: %v", DefaultRequestsDir, err)
-	}
-
-	var names []string
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".yaml") {
-			name := strings.TrimSuffix(file.Name(), ".yaml")
-			parts := strings.SplitN(name, "_", 2)
-			if len(parts) == 2 && parts[0] == method {
-				reqName := parts[1]
-				if strings.HasPrefix(reqName, toComplete) {
-					names = append(names, reqName)
-				}
-			}
-		}
-	}
-	return names, nil
 }
 
 func ExecuteRequest(req Request) (reqHeaders map[string]string, reqBody string, status string, respHeaders map[string][]string, respBody string, duration time.Duration, err error) {
