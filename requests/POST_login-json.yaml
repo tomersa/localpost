@@ -1,0 +1,15 @@
+headers:
+  Content-Type: application/x-www-form-urlencoded
+  HX-Request: true
+content:
+  type: x-www-form-urlencoded
+  data:
+    username: user
+    password: pass
+    json_data: {
+        "some": "x"
+    }
+set-env-var:
+  TOKEN:
+    body: token
+url: {{BASE_URL}}/login
