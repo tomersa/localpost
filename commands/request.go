@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/fatih/color"
@@ -13,9 +12,6 @@ import (
 	"github.com/moshe5745/localpost/util"
 	"github.com/spf13/cobra"
 )
-
-// Regex only needs to extract method, but we'll match full filename for completion
-var methodRegex = regexp.MustCompile(`^([A-Z]+)_(.+?)\.yaml$`)
 
 func requestCompletionFunc(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) >= 1 {
@@ -30,12 +26,9 @@ func requestCompletionFunc(_ *cobra.Command, args []string, toComplete string) (
 	var requestFiles []string
 	for _, file := range files {
 		if !file.IsDir() && strings.HasSuffix(file.Name(), ".yaml") {
-			matches := methodRegex.FindStringSubmatch(file.Name())
-			if len(matches) == 3 {
-				fullName := strings.TrimSuffix(file.Name(), ".yaml")
-				if strings.HasPrefix(fullName, toComplete) {
-					requestFiles = append(requestFiles, fullName)
-				}
+			fullName := strings.TrimSuffix(file.Name(), ".yaml")
+			if strings.HasPrefix(fullName, toComplete) {
+				requestFiles = append(requestFiles, fullName)
 			}
 		}
 	}
@@ -49,7 +42,8 @@ func requestCompletionFunc(_ *cobra.Command, args []string, toComplete string) (
 func NewRequestCommand() *cobra.Command {
 	var verbose bool
 	cmd := &cobra.Command{
-		Use:     "request <request>",
+		Use:     "request <METHOD_name>",
+		Aliases: []string{"-r"}, // Add -r shorthand
 		Short:   "Execute an HTTP request from a YAML file",
 		Args:    cobra.ExactArgs(1),
 		GroupID: "requests",
@@ -74,7 +68,6 @@ func NewRequestCommand() *cobra.Command {
 			}
 
 			req.Method = method
-			// No req.EnvName needed - ExecuteRequest handles env internally
 
 			reqHeaders, reqBody, status, respHeaders, respBody, duration, err := util.ExecuteRequest(req)
 			if err != nil {
