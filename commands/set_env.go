@@ -9,9 +9,10 @@ import (
 
 func NewSetEnvCommand() *cobra.Command {
 	return &cobra.Command{
-		Use:   "set-env [env]",
-		Short: "Set the current environment",
-		Args:  cobra.ExactArgs(1),
+		Use:     "set-env [env]",
+		Short:   "Set the current environment",
+		Args:    cobra.ExactArgs(1),
+		GroupID: "environment",
 		Run: func(cmd *cobra.Command, args []string) {
 			env, err := util.SetEnvName(args[0])
 			if err != nil {
@@ -20,6 +21,9 @@ func NewSetEnvCommand() *cobra.Command {
 			}
 
 			fmt.Printf("Set current environment to '%s'\n", env.Name)
+		},
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 	}
 }

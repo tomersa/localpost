@@ -127,5 +127,8 @@ func NewAddRequestCommand() *cobra.Command {
 			}
 			fmt.Printf("Created new request file: %s\n", filePath)
 		},
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 	}
 }

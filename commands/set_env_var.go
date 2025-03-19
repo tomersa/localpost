@@ -13,7 +13,7 @@ func NewSetEnvVarCommand() *cobra.Command {
 		Use:     "set-env-var <key> <value>",
 		Short:   "Set an environment variable for the current environment",
 		Args:    cobra.ExactArgs(2),
-		GroupID: "env",
+		GroupID: "environment",
 		Run: func(cmd *cobra.Command, args []string) {
 			updatedEnv, err := util.SetEnvVar(args[0], args[1])
 			if err != nil {
@@ -21,6 +21,9 @@ func NewSetEnvVarCommand() *cobra.Command {
 				os.Exit(1)
 			}
 			fmt.Printf("Set %s to %s for environment '%s'\n", args[0], args[1], updatedEnv.Name)
+		},
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 	}
 }

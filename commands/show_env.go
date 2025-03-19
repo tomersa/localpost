@@ -42,6 +42,9 @@ func NewShowEnvCommand() *cobra.Command {
 				}
 			}
 		},
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 	}
 	cmd.Flags().BoolVar(&showAll, "all", false, "Show the entire .localpost configuration")
 	return cmd

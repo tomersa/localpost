@@ -67,6 +67,9 @@ Example: 'source <(localpost completion --shell zsh)'`,
 
 			fmt.Print(builder.String())
 		},
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
 	}
 	cmd.Flags().StringVar((*string)(&shell), "shell", "", "Specify shell for completion (bash, zsh, fish) [required]")
 	cmd.MarkFlagRequired("shell") // Enforce --shell requirement
