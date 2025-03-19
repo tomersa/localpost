@@ -8,7 +8,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/jedib0t/go-pretty/v6/table"
-	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/moshe5745/localpost/util"
 	"github.com/spf13/cobra"
 )
@@ -43,7 +42,7 @@ func NewRequestCommand() *cobra.Command {
 	var verbose bool
 	cmd := &cobra.Command{
 		Use:     "request <METHOD_name>",
-		Aliases: []string{"-r"}, // Add -r shorthand
+		Aliases: []string{"-r"},
 		Short:   "Execute an HTTP request from a YAML file",
 		Args:    cobra.ExactArgs(1),
 		GroupID: "requests",
@@ -51,7 +50,7 @@ func NewRequestCommand() *cobra.Command {
 			input := args[0]
 			parts := strings.SplitN(input, "_", 2)
 			if len(parts) != 2 {
-				fmt.Printf("Error: invalid input format '%s', expected 'METHOD_name' (e.g., 'POST_login-form')\n", input)
+				fmt.Printf("Error: invalid input format '%s', expected 'METHOD_name' (e.g., 'POST_login')\n", input)
 				os.Exit(1)
 			}
 			method := parts[0]
@@ -87,38 +86,49 @@ func NewRequestCommand() *cobra.Command {
 				statusColor = color.New(color.FgWhite).SprintFunc()
 			}
 
-			t := table.NewWriter()
-			t.SetOutputMirror(os.Stdout)
-			t.AppendHeader(table.Row{"Status", "Time"})
-			t.AppendRow(table.Row{
-				statusColor(status),
-				fmt.Sprintf("%dms", duration.Milliseconds()),
-			})
-
-			if !verbose && respBody != "" {
-				t.AppendSeparator()
-				t.AppendRow(table.Row{"BODY", "BODY"}, table.RowConfig{AutoMerge: true, AutoMergeAlign: text.AlignLeft})
-				t.AppendSeparator()
-				t.AppendRow(table.Row{respBody, respBody}, table.RowConfig{AutoMerge: true, AutoMergeAlign: text.AlignLeft})
-			}
-			t.Render()
-
-			if verbose {
-				fmt.Println("\nVerbose Details:")
-				fmt.Printf("URL: %s\n", req.URL)
-				fmt.Println(color.CyanString("Request Headers:"))
-				for k, v := range reqHeaders {
-					fmt.Printf("  %s: %s\n", k, v)
+			// Regular output: table
+			if !verbose {
+				t := table.NewWriter()
+				t.SetOutputMirror(os.Stdout)
+				t.AppendHeader(table.Row{"STATUS", "TIME"})
+				t.AppendRow(table.Row{
+					statusColor(status),
+					fmt.Sprintf("%dms", duration.Milliseconds()),
+				})
+				t.Render()
+				if respBody != "" {
+					fmt.Printf("\nResponse Body: %s\n", respBody)
 				}
-				fmt.Println(color.CyanString("Request Body:"))
-				fmt.Printf("  %s\n", reqBody)
-				fmt.Println(color.CyanString("Response Headers:"))
-				for k, v := range respHeaders {
-					fmt.Printf("  %s: %s\n", k, strings.Join(v, ", "))
-				}
-				fmt.Println(color.CyanString("Response Body:"))
-				fmt.Printf("  %s\n", respBody)
+				return
 			}
+
+			fmt.Println("-----")
+
+			fmt.Printf("Status: %s\n", statusColor(status))
+			fmt.Printf("Time: %dms\n", duration.Milliseconds())
+			fmt.Printf("URL: %s\n", req.URL)
+
+			fmt.Println("-----")
+
+			fmt.Println(color.CyanString("Request"))
+			fmt.Println(color.HiBlueString("  Headers:"))
+			for k, v := range reqHeaders {
+				fmt.Printf("    %s: %s\n", k, v)
+			}
+			fmt.Println(color.CyanString("Request"))
+			fmt.Println(color.HiBlueString("  Body:"))
+			fmt.Printf("    %s\n", reqBody)
+
+			fmt.Println("-----")
+
+			fmt.Println(color.CyanString("Response"))
+			fmt.Println(color.HiBlueString("  Headers:"))
+			for k, v := range respHeaders {
+				fmt.Printf("    %s: %s\n", k, v)
+			}
+			fmt.Println(color.CyanString("Request"))
+			fmt.Println(color.HiBlueString("  Body:"))
+			fmt.Printf("    %s\n", respBody)
 		},
 		ValidArgsFunction: requestCompletionFunc,
 	}
