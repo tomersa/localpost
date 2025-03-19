@@ -45,6 +45,7 @@ func main() {
 	rootCmd.AddCommand(commands.NewAddRequestCommand())
 	rootCmd.AddCommand(commands.NewSetEnvCommand())
 	rootCmd.AddCommand(commands.NewShowEnvCommand())
+	rootCmd.AddCommand(commands.NewSetEnvVarCommand())
 	rootCmd.AddCommand(commands.NewCompletionCommand())
 
 	if err := rootCmd.Execute(); err != nil {
