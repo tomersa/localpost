@@ -1,18 +1,16 @@
 # Localpost
-
-Localpost is a command-line tool for creating and executing HTTP requests, with support for environment variables and dynamic response handling.
+Localpost is a command-line tool for creating, storing, and executing HTTP request collections, with support for environment variables and dynamic response handling.
 
 ## How it works?
 Localpost uses your Git repo to share HTTP requests. Each request is a YAML file in the `requests/` folder, named `METHOD_request_nickname.yaml`, ready to commit and collaborate.
 
-> ℹ️ **For creation of request definition you can use `lpost add-request`**:
-
-> ℹ️ **Shorthand**: Use `lpost` alias that is already set for you.
-
+> ⚠️ **Note:** The \<METHOD> (e.g., POST) is parsed from the filename and must be uppercase. The \<nickname> is arbitrary for you choice.
 #### Request definition example:
 ```yaml
-# ./requests/POST_login.yaml
-url: "{BASE_URL}/login"
+#          ∨∨∨∨ Method: Must match HTTP method (e.g., GET, POST)
+# requests/POST_login.yaml
+#               ∧∧∧∧∧ Nickname: Your custom label
+url: "{BASE_URL}/auth_login"
 headers:
   Accept: application/json
   Content-Type: application/json
@@ -24,6 +22,13 @@ set-env-var:
   TOKEN:
     body: jwt-token
 ```
+
+You can easily create those definitions with:
+```bash
+lpost add-request
+```
+> ℹ️ **Shorthand**: Use `lpost` alias that is already set for you.
+
 Now you can execute this request with `$: lpost -r POST_login`.
 
 > ℹ️ **Collaboration**: Commit your request definitions files to your repo to collaborate with others, or manage them locally without sharing. Key files to include: the `requests/` directory and `.localpost-config`.
