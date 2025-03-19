@@ -380,10 +380,11 @@ func ParseRequest(filePath string) (Request, error) {
 }
 
 // ReplaceEnvVars replaces {{VAR}} placeholders using the provided env vars.
-func ReplaceEnvVars(s string, envVars map[string]string) string {
-	return envVarRegex.ReplaceAllStringFunc(s, func(match string) string {
+func ReplaceEnvVars(input string, vars map[string]string) string {
+	re := regexp.MustCompile(`\{([^}]+)\}`)
+	return re.ReplaceAllStringFunc(input, func(match string) string {
 		key := strings.Trim(match, "{}")
-		if value, ok := envVars[key]; ok {
+		if value, ok := vars[key]; ok {
 			return value
 		}
 		return match
