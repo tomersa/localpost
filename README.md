@@ -1,6 +1,6 @@
 # Localpost
 
-Localpost is a command-line tool for creating and executing HTTP requests, with support for environment variables and dynamic response handling.
+Localpost is a command-line tool for creating and executing HTTP requests, with support for environment variables and dynamic response handling. Use `lpost` as a shorthand alias.
 
 ## How it works?
 Localpost uses your Git repo to share HTTP requests. Each request is a YAML file in the `requests/` folder, named `METHOD_request_nickname.yaml`, ready to commit and collaborate.
@@ -21,9 +21,9 @@ set-env-var:
     body: jwt-token
 ```
 
-Now you can execute this request with `$: localpost -r POST_login`.
+Now you can execute this request with `$: lpost -r POST_login`.
 
-## Binary installation
+##  Installation
 - Grab the latest release from [GitHub Releases](https://github.com/moshe5745/localpost/releases):
   - ### macOS Intel (amd64)
     ```bash
@@ -42,21 +42,21 @@ Now you can execute this request with `$: localpost -r POST_login`.
     sudo mv localpost /usr/local/bin/localpost
     ```
 
-## Shell Completion installation
-- Enable autocompletion by adding the following to your shell config file:
+### Shell Completion installation
+- Enable autocompletion by adding the following to your shell config file (use either `localpost` or `lpost`):
   - Zsh
     ```zsh
-    source <(localpost completion --shell zsh)
+    source <(lpost completion --shell zsh)
     # Add to ~/.zshrc
     ```
   - Bash
     ```bash
-    source <(localpost completion --shell bash)
+    source <(lpost completion --shell bash)
     # Add to ~/.bashrc
     ```
   - Fish
     ```bash
-    source (localpost completion --shell fish | psub)
+    source (lpost completion --shell fish | psub)
     # Add to ~/.config/fish/config.fish
     ```
 - Use TAB key for completion
@@ -64,18 +64,18 @@ Now you can execute this request with `$: localpost -r POST_login`.
 
 ## Usage
 ```bash
-localpost add-request
-# For instance POST_login added
+lpost add-request
+# POST_login added
 ```
 ```bash
-localpost set-env prod
+lpost set-env prod
 # Default env is dev
 ```
 ```bash
-localpost set-env-var BASE_URL https://example.com
+lpost set-env-var BASE_URL https://example.com
 ```
 ```bash
-localpost request POST_login
+lpost -r POST_login
 ```
 ```bash
 $: { TOKEN: 123456 }
@@ -84,7 +84,7 @@ $: { TOKEN: 123456 }
 ## Environment
 #### You can store variables for specific envs.
 You have 2 options for setting env variables: from CLI or with request YAML.
-- **CLI**: `$: localpost set-env-var BASE_URL https://api.example.com`
+- **CLI**: `$: lpost set-env-var BASE_URL https://api.example.com`
 - **YAML**:
   ```yaml
   ...
@@ -138,16 +138,16 @@ set-env-var:
 
 | Command                  | Description                                                                                                        | Example Usage                         |
 |--------------------------|--------------------------------------------------------------------------------------------------------------------|---------------------------------------|
-| `add-request`            | Create a new request YAML file interactively with prompts for nickname, URL, method, body type, and Accept header. | `$: localpost add-request`            |
-| `request <METHOD_name>`  | Execute a request from a YAML file in the `requests/` directory. Shorthand: `-r`.                                  | `$: localpost -r POST_login`          |
-| `set-env <env>`          | Set the current environment in `.localpost-config`.                                                                | `$: localpost set-env prod`           |
-| `set-env-var <key> <value>` | Set an environment variable for the current environment in `.localpost-config`.                                    | `$: localpost set-env-var BASE_URL https://api.example.com` |
-| `show-env`               | Display the current environment and variables from `.localpost-config`. Use `--all` for the full config.           | `$: localpost show-env` or `$: localpost show-env --all` |
-| `completion`             | Output completion script for your shell (bash, zsh, fish) to stdout. Use `--shell` to specify shell if needed.     | `$: source <(localpost completion --shell zsh)` |
+| `add-request`            | Create a new request YAML file interactively with prompts for nickname, URL, method, body type, and Accept header. | `$: lpost add-request`                |
+| `request <METHOD_name>`  | Execute a request from a YAML file in the `requests/` directory. Shorthand: `-r`.                                  | `$: lpost -r POST_login`             |
+| `set-env <env>`          | Set the current environment in `.localpost-config`.                                                                | `$: lpost set-env prod`              |
+| `set-env-var <key> <value>` | Set an environment variable for the current environment in `.localpost-config`.                                    | `$: lpost set-env-var BASE_URL https://api.example.com` |
+| `show-env`               | Display the current environment and variables from `.localpost-config`. Use `--all` for the full config.           | `$: lpost show-env` or `$: lpost show-env --all` |
+| `completion`             | Output completion script for your shell (bash, zsh, fish) to stdout. Requires `--shell` flag.                      | `$: source <(lpost completion --shell zsh)` |
 
 - **Global Flag**: Override the environment temporarily with `-e` or `--env`:
   ```bash
-  localpost -e prod -r GET_users
+  lpost -e prod -r GET_users
   ```
 
 - **Body Types**:
@@ -168,7 +168,7 @@ set-env-var:
    ```
 3. Run:
    ```bash
-   localpost add-request
+   lpost add-request
    ```
 
 ## Contributing
