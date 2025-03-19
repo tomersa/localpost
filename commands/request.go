@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"github.com/jedib0t/go-pretty/v6/text"
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,10 +96,14 @@ func NewRequestCommand() *cobra.Command {
 					statusColor(status),
 					fmt.Sprintf("%dms", duration.Milliseconds()),
 				})
-				t.Render()
-				if respBody != "" {
-					fmt.Printf("\nResponse Body: %s\n", respBody)
+				if !verbose && respBody != "" {
+					t.AppendSeparator()
+					t.AppendRow(table.Row{"BODY", "BODY"}, table.RowConfig{AutoMerge: true, AutoMergeAlign: text.AlignLeft})
+					t.AppendSeparator()
+					t.AppendRow(table.Row{respBody, respBody}, table.RowConfig{AutoMerge: true, AutoMergeAlign: text.AlignLeft})
 				}
+				t.Render()
+
 				return
 			}
 

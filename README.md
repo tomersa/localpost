@@ -78,7 +78,43 @@ lpost set-env-var BASE_URL https://example.com
 lpost -r POST_login
 ```
 ```bash
-$: { TOKEN: 123456 }
+$: 
++-----------+----------+
+| STATUS    | TIME     |
++-----------+----------+
+| 200 OK    | 20ms     |
++-----------+----------+
+| BODY                 |
++----------------------+
+| {"TOKEN":"123456"}   |
++----------------------+
+```
+```bash
+lpost -r POST_login -v
+# Verbose for debugging 
+```
+```bash
+$:
+-----
+Status: 200 OK
+Time: 18ms
+URL: http://localhost:8080/login
+-----
+Request
+  Headers:
+    Content-Type: application/json
+    ...
+Request
+  Body:
+    
+-----
+Response
+  Headers:
+    Content-Type: [application/json]
+    ...
+Request
+  Body:
+    {"TOKEN":"123456"}
 ```
 
 ## Environment
