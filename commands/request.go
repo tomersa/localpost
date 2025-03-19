@@ -69,7 +69,7 @@ func NewRequestCommand() *cobra.Command {
 
 			req.Method = method
 
-			reqURL, reqHeaders, reqBody, status, respHeaders, respBody, duration, err := util.ExecuteRequest(req)
+			resp, err := util.ExecuteRequest(req)
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
@@ -77,11 +77,11 @@ func NewRequestCommand() *cobra.Command {
 
 			var statusColor func(a ...interface{}) string
 			switch {
-			case strings.HasPrefix(status, "2"):
+			case strings.HasPrefix(resp.Status, "2"):
 				statusColor = color.New(color.FgGreen).SprintFunc()
-			case strings.HasPrefix(status, "4"):
+			case strings.HasPrefix(resp.Status, "4"):
 				statusColor = color.New(color.FgYellow).SprintFunc()
-			case strings.HasPrefix(status, "5"):
+			case strings.HasPrefix(resp.Status, "5"):
 				statusColor = color.New(color.FgRed).SprintFunc()
 			default:
 				statusColor = color.New(color.FgWhite).SprintFunc()
@@ -93,14 +93,14 @@ func NewRequestCommand() *cobra.Command {
 				t.SetOutputMirror(os.Stdout)
 				t.AppendHeader(table.Row{"STATUS", "TIME"})
 				t.AppendRow(table.Row{
-					statusColor(status),
-					fmt.Sprintf("%dms", duration.Milliseconds()),
+					statusColor(resp.Status),
+					fmt.Sprintf("%dms", resp.Duration.Milliseconds()),
 				})
-				if !verbose && respBody != "" {
+				if !verbose && resp.RespBody != "" {
 					t.AppendSeparator()
 					t.AppendRow(table.Row{"BODY", "BODY"}, table.RowConfig{AutoMerge: true, AutoMergeAlign: text.AlignLeft})
 					t.AppendSeparator()
-					t.AppendRow(table.Row{respBody, respBody}, table.RowConfig{AutoMerge: true, AutoMergeAlign: text.AlignLeft})
+					t.AppendRow(table.Row{resp.RespBody, resp.RespBody}, table.RowConfig{AutoMerge: true, AutoMergeAlign: text.AlignLeft})
 				}
 				t.Render()
 
@@ -109,31 +109,31 @@ func NewRequestCommand() *cobra.Command {
 
 			fmt.Println("-----")
 
-			fmt.Printf("Status: %s\n", statusColor(status))
-			fmt.Printf("Time: %dms\n", duration.Milliseconds())
-			fmt.Printf("URL: %s\n", reqURL)
+			fmt.Printf("Status: %s\n", statusColor(resp.Status))
+			fmt.Printf("Time: %dms\n", resp.Duration.Milliseconds())
+			fmt.Printf("URL: %s\n", resp.ReqURL)
 
 			fmt.Println("-----")
 
 			fmt.Println(color.CyanString("Request"))
 			fmt.Println(color.HiBlueString("  Headers:"))
-			for k, v := range reqHeaders {
+			for k, v := range resp.ReqHeaders {
 				fmt.Printf("    %s: %s\n", k, v)
 			}
 			fmt.Println(color.CyanString("Request"))
 			fmt.Println(color.HiBlueString("  Body:"))
-			fmt.Printf("    %s\n", reqBody)
+			fmt.Printf("    %s\n", resp.ReqBody)
 
 			fmt.Println("-----")
 
 			fmt.Println(color.CyanString("Response"))
 			fmt.Println(color.HiBlueString("  Headers:"))
-			for k, v := range respHeaders {
+			for k, v := range resp.RespHeaders {
 				fmt.Printf("    %s: %s\n", k, v)
 			}
 			fmt.Println(color.CyanString("Request"))
 			fmt.Println(color.HiBlueString("  Body:"))
-			fmt.Printf("    %s\n", respBody)
+			fmt.Printf("    %s\n", resp.RespBody)
 		},
 		ValidArgsFunction: requestCompletionFunc,
 	}

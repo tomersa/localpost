@@ -234,8 +234,26 @@ func ExecuteRequest(req Request) (Response, error) {
 		req.Headers[key] = ReplaceEnvVars(value, env.Vars)
 	}
 
+	// Replace env vars in body fields before processing
+	for key, value := range req.Body.Json {
+		if strVal, ok := value.(string); ok {
+			req.Body.Json[key] = ReplaceEnvVars(strVal, env.Vars)
+		}
+	}
+	for key, value := range req.Body.FormUrlEncoded {
+		req.Body.FormUrlEncoded[key] = ReplaceEnvVars(value, env.Vars)
+	}
+	for key, value := range req.Body.Form.Fields {
+		req.Body.Form.Fields[key] = ReplaceEnvVars(value, env.Vars)
+	}
+	for key, filePath := range req.Body.Form.Files {
+		req.Body.Form.Files[key] = ReplaceEnvVars(filePath, env.Vars)
+	}
+	req.Body.Text = ReplaceEnvVars(req.Body.Text, env.Vars)
+
 	var body io.Reader
 	contentType := req.Headers["Content-Type"]
+	var reqBody string
 
 	switch contentType {
 	case "application/json", "":
@@ -244,8 +262,8 @@ func ExecuteRequest(req Request) (Response, error) {
 			if err != nil {
 				return Response{}, fmt.Errorf("error marshaling JSON body: %v", err)
 			}
-			bodyStr := ReplaceEnvVars(string(bodyBytes), env.Vars)
-			body = strings.NewReader(bodyStr)
+			reqBody = string(bodyBytes)
+			body = strings.NewReader(reqBody)
 			if contentType == "" {
 				contentType = "application/json"
 			}
@@ -254,10 +272,10 @@ func ExecuteRequest(req Request) (Response, error) {
 		if len(req.Body.FormUrlEncoded) > 0 {
 			data := make(url.Values)
 			for k, v := range req.Body.FormUrlEncoded {
-				data.Set(k, fmt.Sprintf("%v", v))
+				data.Set(k, v)
 			}
-			bodyStr := ReplaceEnvVars(data.Encode(), env.Vars)
-			body = strings.NewReader(bodyStr)
+			reqBody = data.Encode()
+			body = strings.NewReader(reqBody)
 		}
 	case "multipart/form-data":
 		if len(req.Body.Form.Fields) > 0 || len(req.Body.Form.Files) > 0 {
@@ -265,7 +283,7 @@ func ExecuteRequest(req Request) (Response, error) {
 			writer := multipart.NewWriter(bodyBuffer)
 
 			for k, v := range req.Body.Form.Fields {
-				writer.WriteField(k, fmt.Sprintf("%v", v))
+				writer.WriteField(k, v)
 			}
 			for k, filePath := range req.Body.Form.Files {
 				file, err := os.Open(filePath)
@@ -286,13 +304,14 @@ func ExecuteRequest(req Request) (Response, error) {
 			if err != nil {
 				return Response{}, fmt.Errorf("error closing form writer: %v", err)
 			}
+			reqBody = bodyBuffer.String() // Capture the multipart body
 			body = bodyBuffer
 			contentType = writer.FormDataContentType()
 		}
 	case "text/plain":
 		if req.Body.Text != "" {
-			bodyStr := ReplaceEnvVars(req.Body.Text, env.Vars)
-			body = strings.NewReader(bodyStr)
+			reqBody = req.Body.Text
+			body = strings.NewReader(reqBody)
 		}
 	default:
 		if len(req.Body.Json) > 0 || len(req.Body.FormUrlEncoded) > 0 || len(req.Body.Form.Fields) > 0 || len(req.Body.Form.Files) > 0 || req.Body.Text != "" {
@@ -319,7 +338,7 @@ func ExecuteRequest(req Request) (Response, error) {
 		return Response{}, fmt.Errorf("error executing request: %v", err)
 	}
 	defer resp.Body.Close()
-	duration = time.Since(start)
+	duration := time.Since(start)
 
 	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
