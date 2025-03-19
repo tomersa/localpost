@@ -20,13 +20,14 @@ set-env-var:
   TOKEN:
     body: jwt-token
 ```
+
 Now you can execute this request with `$: localpost -r POST_login`.
 
-## Installation
-- Grab the latest release from [GitHub Releases](https://github.com/yourusername/localpost/releases):
+## Binary installation
+- Grab the latest release from [GitHub Releases](https://github.com/moshe5745/localpost/releases):
   - ### macOS Intel (amd64)
     ```bash
-    curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.0/localpost-v1.0.0-darwin-arm64 -o localpost
+    curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.0/localpost-v1.0.0-darwin-amd64 -o localpost
     ```
   - ### macOS Apple Silicon (arm64)
     ```bash
@@ -36,12 +37,12 @@ Now you can execute this request with `$: localpost -r POST_login`.
     ```bash
     chmod +x localpost
     ```
-  - ### Move to /usr/local/bin (So it will globally available in your machine)
+  - ### Move to /usr/local/bin (So it will be globally available in your machine)
     ```bash
     sudo mv localpost /usr/local/bin/localpost
     ```
 
-## Shell Completion
+## Shell Completion installation
 - Enable autocompletion by adding the following to your shell config file:
   - Zsh
     ```zsh
@@ -59,6 +60,7 @@ Now you can execute this request with `$: localpost -r POST_login`.
     # Add to ~/.config/fish/config.fish
     ```
 - Use TAB key for completion
+> ⚠️ Warning: After adding the completion line to your shell config (e.g., ~/.zshrc), run `source ~/.zshrc` (or equivalent) to apply it immediately, or restart your shell.
 
 ## Usage
 ```bash
@@ -81,7 +83,7 @@ $: { TOKEN: 123456 }
 
 ## Environment
 #### You can store variables for specific envs.
-You have 2 options for setting env variables: from CLI or with request YAML from .
+You have 2 options for setting env variables: from CLI or with request YAML.
 - **CLI**: `$: localpost set-env-var BASE_URL https://api.example.com`
 - **YAML**:
   ```yaml
@@ -114,6 +116,7 @@ For storing the collection env vars and current env used.
       BASE_URL: https://api.prod.com
       TOKEN: 456
   ```
+> ℹ️ Note: `.localpost-config` is created automatically on first use with a default `env: dev` if it doesn’t exist.
 
 ### Request YAML Format
 Request files are stored in the `requests/` directory. Example (`requests/POST_login.yaml`):
@@ -144,14 +147,14 @@ set-env-var:
 
 - **Global Flag**: Override the environment temporarily with `-e` or `--env`:
   ```bash
-  $: localpost -e prod -r GET_users
+  localpost -e prod -r GET_users
   ```
 
 - **Body Types**:
-    - `json`: JSON object (e.g., `{"key": "value"}`).
-    - `form-urlencoded`: Key-value pairs (e.g., `key=value`).
-    - `form-data`: Fields and files (e.g., `fields: {field: value}`, `files: {file: path}`).
-    - `text`: Plain text (e.g., `example text`).
+  - `json`: JSON object (e.g., `{"key": "value"}`).
+  - `form-urlencoded`: Key-value pairs (e.g., `key=value`).
+  - `form-data`: Fields and files (e.g., `fields: {field: value}`, `files: {file: path}`).
+  - `text`: Plain text (e.g., `example text`).
 
 ## Building from Source
 1. Clone the repo:
@@ -165,11 +168,11 @@ set-env-var:
    ```
 3. Run:
    ```bash
-   $: localpost add-request
+   localpost add-request
    ```
 
 ## Contributing
-Feel free to submit issues or PRs at [github.com/moshe5745/localpost](https://github.com/yourusername/localpost).
+Feel free to submit issues or PRs at [github.com/moshe5745/localpost](https://github.com/moshe5745/localpost).
 
 ## License
 [MIT License](LICENSE)
