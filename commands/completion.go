@@ -62,6 +62,9 @@ Example: 'source <(localpost completion --shell zsh)'`,
 				os.Exit(1)
 			}
 
+			builder.WriteString("\n# Alias for convenience\n")
+			builder.WriteString("alias lpost='localpost'\n")
+
 			fmt.Print(builder.String())
 		},
 	}

@@ -11,10 +11,9 @@ import (
 
 func main() {
 	rootCmd := &cobra.Command{
-		Use:     "localpost",
-		Aliases: []string{"lpost"},
-		Short:   "A CLI tool to manage and execute HTTP requests",
-		Long:    `A tool to save and execute HTTP requests stored in a Git repository.`,
+		Use:   "localpost",
+		Short: "A CLI tool to manage and execute HTTP requests",
+		Long:  `A tool to save and execute HTTP requests stored in a Git repository.`,
 	}
 	rootCmd.PersistentFlags().StringP("env", "e", "", "Environment to use (e.g., dev, prod); defaults to .localpost-config or 'dev'")
 
