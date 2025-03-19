@@ -1,7 +1,9 @@
 # Localpost
 
+Localpost is a command-line tool for creating and executing HTTP requests, with support for environment variables and dynamic response handling.
+
 ## How it works?
-Localpost uses your Git repo to share HTTP requests, skipping the user fees of other tools. Each request is a YAML file in the `requests/` folder, named `METHOD_request_nickname.yaml`, ready to commit and collaborate.
+Localpost uses your Git repo to share HTTP requests. Each request is a YAML file in the `requests/` folder, named `METHOD_request_nickname.yaml`, ready to commit and collaborate.
 
 Example:
 ```yaml
@@ -18,7 +20,7 @@ set-env-var:
   TOKEN:
     body: jwt-token
 ```
-Now you can execute this request with `$: localpost request POST_login`.
+Now you can execute this request with `$: localpost -r POST_login`.
 
 ## Installation
 - Grab the latest release from [GitHub Releases](https://github.com/yourusername/localpost/releases):
@@ -42,6 +44,8 @@ Now you can execute this request with `$: localpost request POST_login`.
   # Fish: Add to ~/.config/fish/config.fish
   source (localpost completion --shell fish | psub)
   ```
+- Use it with TAB key
+
 
 ## Usage
 ```bash
@@ -49,13 +53,13 @@ $: localpost add-request
 # POST_login added
 $: localpost set-env prod
 $: localpost set-env-var BASE_URL https://example.com
-$: localpost request POST_login
+$: localpost request POST_login # or localpost -r POST_login
 # { TOKEN: 123456 }
 ```
 
 ## Environment
 #### You can store variables for specific envs.
-You have 2 options for setting env variables: from CLI or with request YAML.
+You have 2 options for setting env variables: from CLI or with request YAML from .
 - **CLI**: `$: localpost set-env-var BASE_URL https://api.example.com`
 - **YAML**:
   ```yaml
@@ -110,7 +114,7 @@ set-env-var:
 | Command                  | Description                                                                                                        | Example Usage                         |
 |--------------------------|--------------------------------------------------------------------------------------------------------------------|---------------------------------------|
 | `add-request`            | Create a new request YAML file interactively with prompts for nickname, URL, method, body type, and Accept header. | `$: localpost add-request`            |
-| `request <METHOD_name>`  | Execute a request from a YAML file in the `requests/` directory.                                                   | `$: localpost request POST_login`     |
+| `request <METHOD_name>`  | Execute a request from a YAML file in the `requests/` directory. Shorthand: `-r`.                                  | `$: localpost -r POST_login`          |
 | `set-env <env>`          | Set the current environment in `.localpost-config`.                                                                | `$: localpost set-env prod`           |
 | `set-env-var <key> <value>` | Set an environment variable for the current environment in `.localpost-config`.                                    | `$: localpost set-env-var BASE_URL https://api.example.com` |
 | `show-env`               | Display the current environment and variables from `.localpost-config`. Use `--all` for the full config.           | `$: localpost show-env` or `$: localpost show-env --all` |
@@ -118,7 +122,7 @@ set-env-var:
 
 - **Global Flag**: Override the environment temporarily with `-e` or `--env`:
   ```bash
-  $: localpost -e prod request GET_users
+  $: localpost -e prod -r GET_users
   ```
 
 - **Body Types**:
