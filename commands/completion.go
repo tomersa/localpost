@@ -44,8 +44,8 @@ Example: 'source <(localpost completion --shell zsh)'`,
 			case ShellZsh:
 				// Add compinit initialization for Zsh
 				builder.WriteString("# Ensure Zsh completion system is initialized\n")
-				builder.WriteString("autoload -Uz compinit\n")
-				builder.WriteString("compinit\n")
+				builder.WriteString("autoload -Uz compinit && compinit\n")
+				builder.WriteString("zstyle ':completion:*' menu select\nzstyle ':completion:*' list-colors ''\n")
 				err := cmd.Root().GenZshCompletion(&builder)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Error generating zsh completion: %v\n", err)
