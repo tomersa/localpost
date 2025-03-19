@@ -16,11 +16,10 @@ const (
 	ShellBash Shell = "bash"
 	ShellZsh  Shell = "zsh"
 	ShellFish Shell = "fish"
-	ShellNone Shell = ""
 )
 
 func NewCompletionCommand() *cobra.Command {
-	var shellOverride Shell
+	var shell Shell
 	cmd := &cobra.Command{
 		Use:   "completion",
 		Short: "Output completion script for your shell",
@@ -29,13 +28,9 @@ Supported shells: bash, zsh, fish.
 Add 'source <(localpost completion --shell <shell>)' to your shell config file (e.g., ~/.zshrc, ~/.bashrc, ~/.config/fish/config.fish).
 Example: 'source <(localpost completion --shell zsh)'`,
 		Run: func(cmd *cobra.Command, args []string) {
-			shell := shellOverride
-			if shell == ShellNone {
-				shell = detectShell()
-				if shell == ShellNone {
-					fmt.Fprintf(os.Stderr, "Error: unsupported or undetectable shell; specify with --shell (bash, zsh, fish)\n")
-					os.Exit(1)
-				}
+			if shell == "" {
+				fmt.Fprintf(os.Stderr, "Error: --shell flag is required (e.g., --shell zsh)\n")
+				os.Exit(1)
 			}
 
 			var builder strings.Builder
@@ -47,6 +42,10 @@ Example: 'source <(localpost completion --shell zsh)'`,
 					os.Exit(1)
 				}
 			case ShellZsh:
+				// Add compinit initialization for Zsh
+				builder.WriteString("# Ensure Zsh completion system is initialized\n")
+				builder.WriteString("autoload -Uz compinit\n")
+				builder.WriteString("compinit\n")
 				err := cmd.Root().GenZshCompletion(&builder)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Error generating zsh completion: %v\n", err)
@@ -59,30 +58,14 @@ Example: 'source <(localpost completion --shell zsh)'`,
 					os.Exit(1)
 				}
 			default:
-				fmt.Fprintf(os.Stderr, "Error: unsupported shell: %s\n", shell)
+				fmt.Fprintf(os.Stderr, "Error: unsupported shell: %s (use bash, zsh, or fish)\n", shell)
 				os.Exit(1)
 			}
 
 			fmt.Print(builder.String())
 		},
 	}
-	cmd.Flags().StringVar((*string)(&shellOverride), "shell", "", "Specify shell for completion (bash, zsh, fish)")
+	cmd.Flags().StringVar((*string)(&shell), "shell", "", "Specify shell for completion (bash, zsh, fish) [required]")
+	cmd.MarkFlagRequired("shell") // Enforce --shell requirement
 	return cmd
-}
-
-func detectShell() Shell {
-	shell := os.Getenv("SHELL")
-	if shell == "" {
-		return ShellNone
-	}
-	switch {
-	case strings.Contains(shell, "bash"):
-		return ShellBash
-	case strings.Contains(shell, "zsh"):
-		return ShellZsh
-	case strings.Contains(shell, "fish"):
-		return ShellFish
-	default:
-		return ShellNone
-	}
 }
