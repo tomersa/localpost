@@ -18,7 +18,7 @@ func requestCompletionFunc(_ *cobra.Command, args []string, toComplete string) (
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	files, err := os.ReadDir(util.DefaultRequestsDir)
+	files, err := os.ReadDir(util.RequestsDir)
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
@@ -60,7 +60,7 @@ func NewRequestCommand() *cobra.Command {
 				os.Exit(1)
 			}
 
-			filePath := filepath.Join(util.DefaultRequestsDir, fmt.Sprintf("%s.yaml", input))
+			filePath := filepath.Join(util.RequestsDir, fmt.Sprintf("%s.yaml", input))
 			req, err := util.ParseRequest(filePath)
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
@@ -69,7 +69,7 @@ func NewRequestCommand() *cobra.Command {
 
 			req.Method = method
 
-			reqHeaders, reqBody, status, respHeaders, respBody, duration, err := util.ExecuteRequest(req)
+			reqURL, reqHeaders, reqBody, status, respHeaders, respBody, duration, err := util.ExecuteRequest(req)
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
@@ -111,7 +111,7 @@ func NewRequestCommand() *cobra.Command {
 
 			fmt.Printf("Status: %s\n", statusColor(status))
 			fmt.Printf("Time: %dms\n", duration.Milliseconds())
-			fmt.Printf("URL: %s\n", req.URL)
+			fmt.Printf("URL: %s\n", reqURL)
 
 			fmt.Println("-----")
 

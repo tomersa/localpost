@@ -19,8 +19,18 @@ import (
 
 // ConfigFilePath is the path to the .localpost-config file.
 const ConfigFilePath = "./.localpost-config"
-const DefaultRequestsDir = "requests"
+const RequestsDir = "requests"
 
+// Response holds the results of an HTTP request execution.
+type Response struct {
+	ReqURL      string              // Final URL after env var substitution
+	ReqHeaders  map[string]string   // Request headers sent
+	ReqBody     string              // Request body sent
+	Status      string              // HTTP status (e.g., "200 OK")
+	RespHeaders map[string][]string // Response headers received
+	RespBody    string              // Response body received
+	Duration    time.Duration       // Time taken for the request
+}
 type Env struct {
 	Name string            `yaml:"-"`       // Current environment name (not in YAML for Envs values)
 	Vars map[string]string `yaml:",inline"` // Environment variables (inline for Envs)
@@ -202,20 +212,20 @@ func saveConfigFile(config configFile) error {
 	return nil
 }
 
-func ExecuteRequest(req Request) (reqHeaders map[string]string, reqBody string, status string, respHeaders map[string][]string, respBody string, duration time.Duration, err error) {
+func ExecuteRequest(req Request) (reqURL string, reqHeaders map[string]string, reqBody string, status string, respHeaders map[string][]string, respBody string, duration time.Duration, err error) {
 	env, err := LoadEnv()
 	if err != nil {
-		return nil, "", "", nil, "", 0, fmt.Errorf("error loading env: %v", err)
+		return "", nil, "", "", nil, "", 0, fmt.Errorf("error loading env: %v", err)
 	}
 
 	finalURL := ReplaceEnvVars(req.URL, env.Vars)
 	finalURL, err = ReplaceParams(finalURL, env.Vars)
 	if err != nil {
-		return nil, "", "", nil, "", 0, err
+		return "", nil, "", "", nil, "", 0, err
 	}
 
 	if !strings.HasPrefix(finalURL, "http://") && !strings.HasPrefix(finalURL, "https://") {
-		return nil, "", "", nil, "", 0, fmt.Errorf("invalid URL: %s (must resolve to http:// or https://)", finalURL)
+		return "", nil, "", "", nil, "", 0, fmt.Errorf("invalid URL: %s (must resolve to http:// or https://)", finalURL)
 	}
 
 	for key, value := range req.Headers {
@@ -229,7 +239,7 @@ func ExecuteRequest(req Request) (reqHeaders map[string]string, reqBody string, 
 		if len(req.Body.Json) > 0 {
 			bodyBytes, err := json.Marshal(req.Body.Json)
 			if err != nil {
-				return nil, "", "", nil, "", 0, fmt.Errorf("error marshaling JSON body: %v", err)
+				return "", nil, "", "", nil, "", 0, fmt.Errorf("error marshaling JSON body: %v", err)
 			}
 			bodyStr := ReplaceEnvVars(string(bodyBytes), env.Vars)
 			body = strings.NewReader(bodyStr)
@@ -257,21 +267,21 @@ func ExecuteRequest(req Request) (reqHeaders map[string]string, reqBody string, 
 			for k, filePath := range req.Body.Form.Files {
 				file, err := os.Open(filePath)
 				if err != nil {
-					return nil, "", "", nil, "", 0, fmt.Errorf("error opening file %s: %v", filePath, err)
+					return "", nil, "", "", nil, "", 0, fmt.Errorf("error opening file %s: %v", filePath, err)
 				}
 				defer file.Close()
 				part, err := writer.CreateFormFile(k, filepath.Base(filePath))
 				if err != nil {
-					return nil, "", "", nil, "", 0, fmt.Errorf("error creating form file %s: %v", k, err)
+					return "", nil, "", "", nil, "", 0, fmt.Errorf("error creating form file %s: %v", k, err)
 				}
 				_, err = io.Copy(part, file)
 				if err != nil {
-					return nil, "", "", nil, "", 0, fmt.Errorf("error writing file %s to form: %v", k, err)
+					return "", nil, "", "", nil, "", 0, fmt.Errorf("error writing file %s to form: %v", k, err)
 				}
 			}
 			err := writer.Close()
 			if err != nil {
-				return nil, "", "", nil, "", 0, fmt.Errorf("error closing form writer: %v", err)
+				return "", nil, "", "", nil, "", 0, fmt.Errorf("error closing form writer: %v", err)
 			}
 			body = bodyBuffer
 			contentType = writer.FormDataContentType()
@@ -283,14 +293,14 @@ func ExecuteRequest(req Request) (reqHeaders map[string]string, reqBody string, 
 		}
 	default:
 		if len(req.Body.Json) > 0 || len(req.Body.FormUrlEncoded) > 0 || len(req.Body.Form.Fields) > 0 || len(req.Body.Form.Files) > 0 || req.Body.Text != "" {
-			return nil, "", "", nil, "", 0, fmt.Errorf("unsupported or missing Content-Type for body: %s", contentType)
+			return "", nil, "", "", nil, "", 0, fmt.Errorf("unsupported or missing Content-Type for body: %s", contentType)
 		}
 	}
 
 	client := &http.Client{}
 	httpReq, err := http.NewRequest(req.Method, finalURL, body)
 	if err != nil {
-		return nil, "", "", nil, "", 0, fmt.Errorf("error creating request: %v", err)
+		return "", nil, "", "", nil, "", 0, fmt.Errorf("error creating request: %v", err)
 	}
 
 	for key, value := range req.Headers {
@@ -303,14 +313,14 @@ func ExecuteRequest(req Request) (reqHeaders map[string]string, reqBody string, 
 	start := time.Now()
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, "", "", nil, "", 0, fmt.Errorf("error executing request: %v", err)
+		return "", nil, "", "", nil, "", 0, fmt.Errorf("error executing request: %v", err)
 	}
 	defer resp.Body.Close()
 	duration = time.Since(start)
 
 	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", "", nil, "", 0, fmt.Errorf("error reading response: %v", err)
+		return "", nil, "", "", nil, "", 0, fmt.Errorf("error reading response: %v", err)
 	}
 	respBody = string(respBodyBytes)
 
@@ -331,13 +341,13 @@ func ExecuteRequest(req Request) (reqHeaders map[string]string, reqBody string, 
 		if value != "" {
 			updatedEnv, err := SetEnvVar(envKey, value)
 			if err != nil {
-				return nil, "", "", nil, "", 0, fmt.Errorf("error setting env var %s: %v", envKey, err)
+				return "", nil, "", "", nil, "", 0, fmt.Errorf("error setting env var %s: %v", envKey, err)
 			}
 			env = updatedEnv
 		}
 	}
 
-	return req.Headers, reqBody, resp.Status, resp.Header, respBody, duration, nil
+	return finalURL, req.Headers, reqBody, resp.Status, resp.Header, respBody, duration, nil
 }
 
 // ParseRequest parses a request YAML file into a Request struct.

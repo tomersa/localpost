@@ -111,8 +111,8 @@ func NewAddRequestCommand() *cobra.Command {
 				URL:     urlPath,
 			}
 
-			filePath := filepath.Join(util.DefaultRequestsDir, fmt.Sprintf("%s_%s.yaml", method, name))
-			if err := os.MkdirAll(util.DefaultRequestsDir, 0755); err != nil {
+			filePath := filepath.Join(util.RequestsDir, fmt.Sprintf("%s_%s.yaml", method, name))
+			if err := os.MkdirAll(util.RequestsDir, 0755); err != nil {
 				fmt.Printf("Error creating requests directory: %v\n", err)
 				os.Exit(1)
 			}
