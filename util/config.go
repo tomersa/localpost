@@ -52,7 +52,7 @@ type Request struct {
 	} `yaml:"set-env-var,omitempty"`
 }
 
-// GetConfig reads and returns the raw YAML content of .localpost-config
+// GetConfig reads and returns the raw YAML content of .localpost-config.
 // Returns an empty string if the file doesn’t exist, or an error if reading fails.
 func GetConfig() (string, error) {
 	data, err := os.ReadFile(ConfigFilePath)
@@ -65,8 +65,8 @@ func GetConfig() (string, error) {
 	return string(data), nil
 }
 
-// LoadEnv loads the .localpost-config and returns the current environment.
-// Returns a zero Env and an error if parsing fails.
+// LoadEnv loads the .localpost-config configuration and returns the current environment.
+// Creates the file with a default config if it doesn’t exist.
 func LoadEnv() (Env, error) {
 	data, err := GetConfig()
 	if err != nil {
@@ -74,6 +74,16 @@ func LoadEnv() (Env, error) {
 	}
 
 	if data == "" {
+		// File doesn’t exist—create default config
+		defaultConfig := configFile{
+			Env: "dev",
+			Envs: map[string]Env{
+				"dev": {Vars: make(map[string]string)},
+			},
+		}
+		if err := saveConfigFile(defaultConfig); err != nil {
+			return Env{}, fmt.Errorf("error creating default %s: %v", ConfigFilePath, err)
+		}
 		return Env{
 			Name: "dev",
 			Vars: make(map[string]string),
