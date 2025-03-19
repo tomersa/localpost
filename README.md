@@ -24,37 +24,59 @@ Now you can execute this request with `$: localpost -r POST_login`.
 
 ## Installation
 - Grab the latest release from [GitHub Releases](https://github.com/yourusername/localpost/releases):
-  ```bash
-  # macOS Intel (amd64)
-  curl -L https://github.com/yourusername/localpost/releases/download/v1.0.0/localpost-v1.0.0-darwin-amd64.zip -o localpost.zip && unzip localpost.zip && chmod +x localpost-darwin-amd64 && sudo mv localpost-darwin-amd64 /usr/local/bin/localpost
-
-  # macOS Apple Silicon (arm64)
-  curl -L https://github.com/yourusername/localpost/releases/download/v1.0.0/localpost-v1.0.0-darwin-arm64.zip -o localpost.zip && unzip localpost.zip && chmod +x localpost-darwin-arm64 && sudo mv localpost-darwin-arm64 /usr/local/bin/localpost
-  ```
+  - ### macOS Intel (amd64)
+    ```bash
+    curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.0/localpost-v1.0.0-darwin-arm64 -o localpost
+    ```
+  - ### macOS Apple Silicon (arm64)
+    ```bash
+    curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.0/localpost-v1.0.0-darwin-arm64 -o localpost  
+    ```
+  - ### Make it executable
+    ```bash
+    chmod +x localpost
+    ```
+  - ### Move to /usr/local/bin (So it will globally available in your machine)
+    ```bash
+    sudo mv localpost /usr/local/bin/localpost
+    ```
 
 ## Shell Completion
 - Enable autocompletion by adding the following to your shell config file:
-  ```zsh
-  # Zsh: Add to ~/.zshrc
-  source <(localpost completion --shell zsh)
-
-  # Bash: Add to ~/.bashrc
-  source <(localpost completion --shell bash)
-  
-  # Fish: Add to ~/.config/fish/config.fish
-  source (localpost completion --shell fish | psub)
-  ```
-- Use it with TAB key
-
+  - Zsh
+    ```zsh
+    source <(localpost completion --shell zsh)
+    # Add to ~/.zshrc
+    ```
+  - Bash
+    ```bash
+    source <(localpost completion --shell bash)
+    # Add to ~/.bashrc
+    ```
+  - Fish
+    ```bash
+    source (localpost completion --shell fish | psub)
+    # Add to ~/.config/fish/config.fish
+    ```
+- Use TAB key for completion
 
 ## Usage
 ```bash
-$: localpost add-request
-# POST_login added
-$: localpost set-env prod
-$: localpost set-env-var BASE_URL https://example.com
-$: localpost request POST_login # or localpost -r POST_login
-# { TOKEN: 123456 }
+localpost add-request
+# For instance POST_login added
+```
+```bash
+localpost set-env prod
+# Default env is dev
+```
+```bash
+localpost set-env-var BASE_URL https://example.com
+```
+```bash
+localpost request POST_login
+```
+```bash
+$: { TOKEN: 123456 }
 ```
 
 ## Environment
@@ -134,7 +156,7 @@ set-env-var:
 ## Building from Source
 1. Clone the repo:
    ```bash
-   git clone https://github.com/yourusername/localpost.git
+   git clone https://github.com/moshe5745/localpost.git
    cd localpost
    ```
 2. Build:
@@ -147,7 +169,7 @@ set-env-var:
    ```
 
 ## Contributing
-Feel free to submit issues or PRs at [github.com/yourusername/localpost](https://github.com/yourusername/localpost).
+Feel free to submit issues or PRs at [github.com/moshe5745/localpost](https://github.com/yourusername/localpost).
 
 ## License
 [MIT License](LICENSE)
