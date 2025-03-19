@@ -1,11 +1,11 @@
 # Localpost
 
-Localpost is a command-line tool for creating and executing HTTP requests, with support for environment variables and dynamic response handling. Use `lpost` as a shorthand alias.
+Localpost is a command-line tool for creating and executing HTTP requests, with support for environment variables and dynamic response handling.
 
 ## How it works?
 Localpost uses your Git repo to share HTTP requests. Each request is a YAML file in the `requests/` folder, named `METHOD_request_nickname.yaml`, ready to commit and collaborate.
 
-Example:
+#### Request definition example:
 ```yaml
 # ./requests/POST_login.yaml
 url: "{BASE_URL}/login"
@@ -20,8 +20,10 @@ set-env-var:
   TOKEN:
     body: jwt-token
 ```
+> ℹ️ **Note**: Commit your request definitions files to your repo to collaborate with others, or manage them locally without sharing. Key files to include: the `requests/` directory and `.localpost-config`.
 
 Now you can execute this request with `$: lpost -r POST_login`.
+> ℹ️ **Note**: Use `lpost` as a shorthand alias.
 
 ##  Installation
 - Grab the latest release from [GitHub Releases](https://github.com/moshe5745/localpost/releases):
@@ -43,7 +45,7 @@ Now you can execute this request with `$: lpost -r POST_login`.
     ```
 
 ### Shell Completion installation
-- Enable autocompletion by adding the following to your shell config file (use either `localpost` or `lpost`):
+- Enable autocompletion by adding the following to your shell config file.
   - Zsh
     ```zsh
     source <(lpost completion --shell zsh)
@@ -60,9 +62,9 @@ Now you can execute this request with `$: lpost -r POST_login`.
     # Add to ~/.config/fish/config.fish
     ```
 - Use TAB key for completion
-> ⚠️ Warning: After adding the completion line to your shell config (e.g., ~/.zshrc), run `source ~/.zshrc` (or equivalent) to apply it immediately, or restart your shell.
+> ⚠️  After adding the completion line to your shell config (e.g., ~/.zshrc), run `source ~/.zshrc` (or equivalent) to apply it immediately, or restart your shell.
 
-## Usage
+## Basic usage example
 ```bash
 lpost add-request
 # POST_login added
@@ -117,10 +119,18 @@ Request
     {"TOKEN":"123456"}
 ```
 
-## Environment
-#### You can store variables for specific envs.
-You have 2 options for setting env variables: from CLI or with request YAML.
-- **CLI**: `$: lpost set-env-var BASE_URL https://api.example.com`
+## Environment Variables
+- Use `lpost` to store and manage variables for different environments (e.g., `dev`, `prod`).
+- Let you set custom values (e.g., API endpoints, credentials) per environment.
+
+> ℹ️ **Note**: These environment variables are unique to `localpost` and stored in `.localpost-config`—they’re separate from your shell’s environment, `.env` files, or other tools.
+
+### Setting Environment Variables
+You can set variables in two ways:
+- **CLI**:
+  ```bash
+  lpost set-env-var BASE_URL https://api.example.com
+  ```
 - **YAML**:
   ```yaml
   ...
@@ -130,7 +140,7 @@ You have 2 options for setting env variables: from CLI or with request YAML.
     Cookie: 
       header: Cookie # from "Cookie" header
   ```
-Then you can use them inside your requests:
+Then you can use them inside your requests definitions:
 ```yaml
 url: "{BASE_URL}/login"
 headers:
