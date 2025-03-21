@@ -1,5 +1,5 @@
 # Localpost
-Localpost is a command-line tool for creating, storing, and executing HTTP request collections, with support for environment variables and dynamic response handling.
+Localpost is a CLI API client for storing, and executing HTTP request collections, with support for environment variables and dynamic response handling.
 
 ## How it works?
 Localpost uses your Git repo to share HTTP requests. Each request is a YAML file in the `requests/` folder, named `METHOD_request_nickname.yaml`, ready to commit and collaborate.
