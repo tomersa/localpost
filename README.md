@@ -240,9 +240,9 @@ Planned features to enhance `localpost`—contributions welcome!
 
 ### Next Release (v1.1.0)
 - **Schema Snapshot Tests**: Compare response schemas against saved snapshots for regression testing (`lpost test`).
-- **OpenAPI Integration**: Import OpenAPI specs to auto-generate request files (`lpost import-openapi`).
 
 ### Future Releases
+- **OpenAPI Integration**: Import OpenAPI specs to auto-generate request files (`lpost import-openapi`).
 - **Request Validation**: Define expected status codes or headers in YAML to validate responses.
 - **Mock Server Mode**: Run `lpost` as a mock API server using request files (`lpost mock`).
 - **Request Templates**: Reuse common request parts from template files.
