@@ -235,8 +235,19 @@ set-env-var:
    lpost add-request
    ```
 
-## Contributing
-Feel free to submit issues or PRs at [github.com/moshe5745/localpost](https://github.com/moshe5745/localpost).
+## Roadmap
+Planned features to enhance `localpost`—contributions welcome!
+
+### Next Release (v1.1.0)
+- **Schema Snapshot Tests**: Compare response schemas against saved snapshots for regression testing (`lpost test`).
+- **OpenAPI Integration**: Import OpenAPI specs to auto-generate request files (`lpost import-openapi`).
+
+### Future Releases
+- **Request Validation**: Define expected status codes or headers in YAML to validate responses.
+- **Mock Server Mode**: Run `lpost` as a mock API server using request files (`lpost mock`).
+- **Request Templates**: Reuse common request parts from template files.
+
+> ℹ️ **Got ideas?**: Share them at [github.com/moshe5745/localpost](https://github.com/moshe5745/localpost)!
 
 ## License
 [MIT License](LICENSE)
