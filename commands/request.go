@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"github.com/jedib0t/go-pretty/v6/text"
 	"os"
 	"path/filepath"
 	"strings"
@@ -91,30 +90,40 @@ func NewRequestCommand() *cobra.Command {
 			if !verbose {
 				t := table.NewWriter()
 				t.SetOutputMirror(os.Stdout)
+
+				// Base table with Status and Time
 				t.AppendHeader(table.Row{"STATUS", "TIME"})
-				t.AppendRow(table.Row{
+				row := table.Row{
 					statusColor(resp.Status),
 					fmt.Sprintf("%dms", resp.Duration.Milliseconds()),
-				})
-				if !verbose && resp.RespBody != "" {
-					t.AppendSeparator()
-					t.AppendRow(table.Row{"BODY", "BODY"}, table.RowConfig{AutoMerge: true, AutoMergeAlign: text.AlignLeft})
-					t.AppendSeparator()
-					t.AppendRow(table.Row{resp.RespBody, resp.RespBody}, table.RowConfig{AutoMerge: true, AutoMergeAlign: text.AlignLeft})
 				}
+
+				// Add BODY column only for JSON
+				contentType := ""
+				if len(resp.RespHeaders["Content-Type"]) > 0 {
+					contentType = strings.ToLower(strings.Split(resp.RespHeaders["Content-Type"][0], ";")[0])
+				}
+				if contentType == "application/json" && resp.RespBody != "" {
+					t.AppendHeader(table.Row{"STATUS", "TIME", "BODY"})
+					row = append(row, resp.RespBody)
+				}
+
+				t.AppendRow(row)
 				t.Render()
 
+				// Print body separately for non-JSON types
+				if contentType != "application/json" && resp.RespBody != "" {
+					fmt.Printf("\nResponse Body:\n%s\n", resp.RespBody)
+				}
 				return
 			}
 
+			// Verbose output: plain text with delimiter
 			fmt.Println("-----")
-
 			fmt.Printf("Status: %s\n", statusColor(resp.Status))
 			fmt.Printf("Time: %dms\n", resp.Duration.Milliseconds())
 			fmt.Printf("URL: %s\n", resp.ReqURL)
-
 			fmt.Println("-----")
-
 			fmt.Println(color.CyanString("Request"))
 			fmt.Println(color.HiBlueString("  Headers:"))
 			for k, v := range resp.ReqHeaders {
@@ -123,9 +132,7 @@ func NewRequestCommand() *cobra.Command {
 			fmt.Println(color.CyanString("Request"))
 			fmt.Println(color.HiBlueString("  Body:"))
 			fmt.Printf("    %s\n", resp.ReqBody)
-
 			fmt.Println("-----")
-
 			fmt.Println(color.CyanString("Response"))
 			fmt.Println(color.HiBlueString("  Headers:"))
 			for k, v := range resp.RespHeaders {
@@ -133,7 +140,7 @@ func NewRequestCommand() *cobra.Command {
 			}
 			fmt.Println(color.CyanString("Request"))
 			fmt.Println(color.HiBlueString("  Body:"))
-			fmt.Printf("    %s\n", resp.RespBody)
+			fmt.Printf("    %s\n", resp.ReqBody)
 		},
 		ValidArgsFunction: requestCompletionFunc,
 	}
