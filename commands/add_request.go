@@ -98,7 +98,7 @@ func NewAddRequestCommand() *cobra.Command {
 						body.Form.Fields = map[string]string{"field": "value"}
 						body.Form.Files = map[string]string{"file": "/path/to/file"}
 					case "text/plain":
-						body.Text = "example text content"
+						body.Text = "example text"
 					}
 					headers = map[string]string{"Content-Type": contentType}
 				}
@@ -117,11 +117,16 @@ func NewAddRequestCommand() *cobra.Command {
 				os.Exit(1)
 			}
 			data, err := yaml.Marshal(&req)
+			yamlStr := string(data)
+			yamlStr = strings.ReplaceAll(yamlStr, "key: value", "#key: value")
+			yamlStr = strings.ReplaceAll(yamlStr, "field: value", "#field: value")
+			yamlStr = strings.ReplaceAll(yamlStr, "example text", "#example text")
+
 			if err != nil {
 				fmt.Printf("Error marshaling request: %v\n", err)
 				os.Exit(1)
 			}
-			if err := os.WriteFile(filePath, data, 0644); err != nil {
+			if err := os.WriteFile(filePath, []byte(yamlStr), 0644); err != nil {
 				fmt.Printf("Error writing request file: %v\n", err)
 				os.Exit(1)
 			}
