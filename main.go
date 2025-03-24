@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/moshe5745/localpost/util"
+	"github.com/fatih/color"
 	"os"
 
-	"github.com/moshe5745/localpost/commands" // Adjust to your actual package path
+	"github.com/moshe5745/localpost/commands"
+	"github.com/moshe5745/localpost/util"
 	"github.com/spf13/cobra"
 )
 
@@ -14,42 +15,45 @@ func main() {
 		Use:   "localpost",
 		Short: "A CLI tool to manage and execute HTTP requests",
 		Long:  `A tool to save and execute HTTP requests stored in a Git repository.`,
-	}
-	rootCmd.PersistentFlags().StringP("env", "e", "", "Environment to use (e.g., dev, prod); defaults to .localpost-config or 'dev'")
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			// Skip for init and completion commands
+			if cmd.Name() == "init" || cmd.Name() == "completion" {
+				return nil
+			}
 
-	// PersistentPreRun with safe flag access and completion skip
-	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
-		// Skip for completion command
-		if cmd.Name() == "completion" {
-			return
-		}
-
-		flag := cmd.PersistentFlags().Lookup("env")
-		if flag != nil {
-			if flagEnv := flag.Value.String(); flagEnv != "" {
-				_, err := util.SetEnvName(flagEnv)
-				if err != nil {
-					os.Stderr.WriteString(fmt.Sprintf("Error setting environment: %v\n", err))
-					os.Exit(1)
+			// Check localpost/ context for all other commands
+			if err := util.CheckRepoContext(); err != nil {
+				red := color.New(color.FgRed).SprintFunc()
+				return fmt.Errorf("%s", red(err))
+			}
+			// Handle --env flag
+			flag := cmd.PersistentFlags().Lookup("env")
+			if flag != nil {
+				if flagEnv := flag.Value.String(); flagEnv != "" {
+					_, err := util.SetEnvName(flagEnv)
+					if err != nil {
+						return fmt.Errorf("error setting environment: %v", err)
+					}
 				}
 			}
-		}
+			return nil
+		},
 	}
+	rootCmd.PersistentFlags().StringP("env", "e", "", "Environment to use (e.g., dev, prod); defaults to .localpost-config or 'dev'")
 
 	// Define command groups
 	rootCmd.AddGroup(&cobra.Group{ID: "requests", Title: "Request Commands"})
 	rootCmd.AddGroup(&cobra.Group{ID: "environment", Title: "Environment Commands"})
 
-	// Add commands with their respective groups
-	rootCmd.AddCommand(commands.NewRequestCommand())
+	rootCmd.AddCommand(commands.NewInitCommand())
 	rootCmd.AddCommand(commands.NewAddRequestCommand())
+	rootCmd.AddCommand(commands.NewRequestCommand())
 	rootCmd.AddCommand(commands.NewSetEnvCommand())
-	rootCmd.AddCommand(commands.NewShowEnvCommand())
 	rootCmd.AddCommand(commands.NewSetEnvVarCommand())
+	rootCmd.AddCommand(commands.NewShowEnvCommand())
 	rootCmd.AddCommand(commands.NewCompletionCommand())
 
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
 		os.Exit(1)
 	}
 }

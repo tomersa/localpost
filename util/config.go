@@ -2,20 +2,55 @@ package util
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
-const ConfigFilePath = "./.localpost-config"
-const RequestsDir = "requests"
+const LocalpostDir = "lpost"
+const RequestsDir = LocalpostDir + "/requests"
+const ResponsesDir = LocalpostDir + "/responses"
+const ConfigFile = "config.yaml"
+const ConfigFilePath = LocalpostDir + "/" + ConfigFile
 
-// configFile is an internal struct for parsing .localpost-config YAML.
+// configFile is an internal struct for parsing config.yaml.
 type configFile struct {
 	Env  string         `yaml:"env"`
 	Envs map[string]Env `yaml:"envs"`
 }
 
-// GetConfig reads and returns the raw YAML content of .localpost-config.
+// CheckRepoContext verifies if the current directory contains a lpost/ folder.
+func CheckRepoContext() error {
+	// Check lpost/ directory
+	if _, err := os.Stat("lpost"); os.IsNotExist(err) {
+		return fmt.Errorf("localpost context not found (lpost directory).\nMake sure you running in the right directory or run 'lpost init' to init localpost.\n")
+	}
+
+	// Check config.yaml file
+	if _, err := os.Stat(ConfigFilePath); os.IsNotExist(err) {
+		return fmt.Errorf("localpost context not found (%s).\nMake sure you running in the right directory or run 'lpost init' to init localpost.\n", ConfigFilePath)
+	}
+
+	// Read and validate config.yaml
+	data, err := os.ReadFile(ConfigFilePath)
+	if err != nil {
+		return fmt.Errorf("error reading %s: %v", ConfigFilePath, err)
+	}
+
+	var config configFile
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return fmt.Errorf("invalid %s: %v", ConfigFilePath, err)
+	}
+
+	// Basic validation: ensure 'env' field exists
+	if config.Env == "" {
+		return fmt.Errorf("invalid %s: missing 'env' field", ConfigFilePath)
+	}
+
+	return nil
+}
+
+// GetConfig reads and returns the raw YAML content of config.yaml.
 // Returns an empty string if the file doesn’t exist, or an error if reading fails.
 func GetConfig() (string, error) {
 	data, err := os.ReadFile(ConfigFilePath)
@@ -28,7 +63,7 @@ func GetConfig() (string, error) {
 	return string(data), nil
 }
 
-// LoadEnv loads the .localpost-config configuration and returns the current environment.
+// LoadEnv loads the config.yaml configuration and returns the current environment.
 // Creates the file with a default config if it doesn’t exist, but only in a valid repo context.
 func LoadEnv() (Env, error) {
 	data, err := GetConfig()
@@ -78,7 +113,7 @@ func LoadEnv() (Env, error) {
 	}, nil
 }
 
-// SetEnvName updates the current environment name in .localpost-config and returns the updated Env.
+// SetEnvName updates the current environment name in config.yaml and returns the updated Env.
 func SetEnvName(envName string) (Env, error) {
 	data, err := GetConfig()
 	if err != nil {
@@ -114,7 +149,7 @@ func SetEnvName(envName string) (Env, error) {
 	}, nil
 }
 
-// SetEnvVar sets an environment variable for the current environment in .localpost-config
+// SetEnvVar sets an environment variable for the current environment in config.yaml
 // Returns the updated Env with the new variable set.
 func SetEnvVar(key, value string) (Env, error) {
 	data, err := GetConfig()
@@ -152,7 +187,7 @@ func SetEnvVar(key, value string) (Env, error) {
 	}, nil
 }
 
-// saveConfigFile writes the config to .localpost-config.
+// saveConfigFile writes the config file.
 func saveConfigFile(config configFile) error {
 	data, err := yaml.Marshal(&config)
 	if err != nil {
