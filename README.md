@@ -39,19 +39,19 @@ Now you can execute this request with `$: lpost -r POST_login`.
   - ### Download the binary
     - #### macOS Intel (amd64)
         ```bash
-        curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.0/localpost-v1.0.0-darwin-amd64 -o localpost
+        curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-darwin-amd64 -o localpost
         ```
     - #### macOS Apple Silicon (arm64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.0/localpost-v1.0.0-darwin-arm64 -o localpost  
+      curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-darwin-arm64 -o localpost  
       ```
     - #### Linux (amd64)
        ```bash
-       curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.0/localpost-v1.0.0-linux-amd64 -o localpost
+       curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-linux-amd64 -o localpost
        ```
     - #### Linux (arm64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.0/localpost-v1.0.0-linux-arm64 -o localpost  
+      curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-linux-arm64 -o localpost  
       ```
   - ### Make it executable
     ```bash
