@@ -13,10 +13,11 @@ type Response struct {
 	Duration    time.Duration       // Time taken for the request
 }
 
-// Env represents an environment with its variables.
+// Env represents an environment with its variables and cookies.
 type Env struct {
-	Name string            `yaml:"-"`       // Current environment name (not in YAML for Envs values)
-	Vars map[string]string `yaml:",inline"` // Environment variables (inline for Envs)
+	Name    string            `yaml:"-"`                 // Current environment name (not in YAML for Envs values)
+	Vars    map[string]string `yaml:",inline"`           // Environment variables (inline for Envs)
+	Cookies map[string]string `yaml:"cookies,omitempty"` // Cookies stored as name=value pairs
 }
 
 // Body represents the request body content.
@@ -40,4 +41,6 @@ type Request struct {
 		Header string `yaml:"header,omitempty"`
 		Body   string `yaml:"body,omitempty"`
 	} `yaml:"set-env-var,omitempty"`
+	PreFlight  string `yaml:"pre-flight,omitempty"`  // Request to run before (future)
+	PostFlight string `yaml:"post-flight,omitempty"` // Request to run after (future)
 }

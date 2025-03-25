@@ -15,11 +15,19 @@ func NewSetEnvVarCommand() *cobra.Command {
 		Args:    cobra.ExactArgs(2),
 		GroupID: "environment",
 		Run: func(cmd *cobra.Command, args []string) {
-			updatedEnv, err := util.SetEnvVar(args[0], args[1])
-			if err != nil {
+			// Set the environment variable using updateConfig
+			if err := util.SetEnvVar(args[0], args[1]); err != nil {
 				fmt.Printf("Error setting %s: %v\n", args[0], err)
 				os.Exit(1)
 			}
+
+			// Load the updated environment to get the name
+			updatedEnv, err := util.LoadEnv()
+			if err != nil {
+				fmt.Printf("Error loading updated environment: %v\n", err)
+				os.Exit(1)
+			}
+
 			fmt.Printf("Set %s to %s for environment '%s'\n", args[0], args[1], updatedEnv.Name)
 		},
 		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {

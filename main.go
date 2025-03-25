@@ -35,7 +35,7 @@ func main() {
 			flag := cmd.PersistentFlags().Lookup("env")
 			if flag != nil {
 				if flagEnv := flag.Value.String(); flagEnv != "" {
-					_, err := util.SetEnvName(flagEnv)
+					err := util.SetEnv(flagEnv)
 					if err != nil {
 						return fmt.Errorf("error setting environment: %v", err)
 					}

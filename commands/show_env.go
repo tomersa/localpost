@@ -17,7 +17,7 @@ func NewShowEnvCommand() *cobra.Command {
 		GroupID: "environment",
 		Run: func(cmd *cobra.Command, args []string) {
 			if showAll {
-				configFile, err := util.GetConfig()
+				configFile, err := util.ReadConfig()
 				if err != nil {
 					fmt.Printf("Error loading .localpost: %v\n", err)
 					os.Exit(1)

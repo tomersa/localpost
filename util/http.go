@@ -42,8 +42,7 @@ func ExecuteRequest(req Request) (Response, error) {
 		return Response{}, fmt.Errorf("error loading env: %v", err)
 	}
 
-	finalURL := ReplaceEnvVars(req.URL, env.Vars)
-	finalURL, err = ReplaceParams(finalURL, env.Vars)
+	finalURL, err := replacePlaceholders(req.URL, env.Vars)
 	if err != nil {
 		return Response{}, err
 	}
@@ -53,24 +52,42 @@ func ExecuteRequest(req Request) (Response, error) {
 	}
 
 	for key, value := range req.Headers {
-		req.Headers[key] = ReplaceEnvVars(value, env.Vars)
+		req.Headers[key], err = replacePlaceholders(value, env.Vars)
+		if err != nil {
+			return Response{}, fmt.Errorf("error replacing placeholders in header %s: %v", key, err)
+		}
 	}
 
 	for key, value := range req.Body.Json {
 		if strVal, ok := value.(string); ok {
-			req.Body.Json[key] = ReplaceEnvVars(strVal, env.Vars)
+			req.Body.Json[key], err = replacePlaceholders(strVal, env.Vars)
+			if err != nil {
+				return Response{}, fmt.Errorf("error replacing placeholders in JSON body %s: %v", key, err)
+			}
 		}
 	}
 	for key, value := range req.Body.FormUrlEncoded {
-		req.Body.FormUrlEncoded[key] = ReplaceEnvVars(value, env.Vars)
+		req.Body.FormUrlEncoded[key], err = replacePlaceholders(value, env.Vars)
+		if err != nil {
+			return Response{}, fmt.Errorf("error replacing placeholders in form-urlencoded %s: %v", key, err)
+		}
 	}
 	for key, value := range req.Body.Form.Fields {
-		req.Body.Form.Fields[key] = ReplaceEnvVars(value, env.Vars)
+		req.Body.Form.Fields[key], err = replacePlaceholders(value, env.Vars)
+		if err != nil {
+			return Response{}, fmt.Errorf("error replacing placeholders in form fields %s: %v", key, err)
+		}
 	}
 	for key, filePath := range req.Body.Form.Files {
-		req.Body.Form.Files[key] = ReplaceEnvVars(filePath, env.Vars)
+		req.Body.Form.Files[key], err = replacePlaceholders(filePath, env.Vars)
+		if err != nil {
+			return Response{}, fmt.Errorf("error replacing placeholders in form files %s: %v", key, err)
+		}
 	}
-	req.Body.Text = ReplaceEnvVars(req.Body.Text, env.Vars)
+	req.Body.Text, err = replacePlaceholders(req.Body.Text, env.Vars)
+	if err != nil {
+		return Response{}, fmt.Errorf("error replacing placeholders in text body: %v", err)
+	}
 
 	var body io.Reader
 	contentType := req.Headers["Content-Type"]
@@ -153,6 +170,18 @@ func ExecuteRequest(req Request) (Response, error) {
 		httpReq.Header.Set("Content-Type", contentType)
 	}
 
+	// Add stored cookies to the request
+	if len(env.Cookies) > 0 {
+		cookieHeader := ""
+		for name, value := range env.Cookies {
+			if cookieHeader != "" {
+				cookieHeader += "; "
+			}
+			cookieHeader += fmt.Sprintf("%s=%s", name, value)
+		}
+		httpReq.Header.Set("Cookie", cookieHeader)
+	}
+
 	start := time.Now()
 	resp, err := client.Do(httpReq)
 	if err != nil {
@@ -169,6 +198,7 @@ func ExecuteRequest(req Request) (Response, error) {
 
 	req.URL = finalURL
 
+	// Process set-env-var if present
 	if len(req.SetEnv) > 0 {
 		for varName, source := range req.SetEnv {
 			var value string
@@ -177,7 +207,6 @@ func ExecuteRequest(req Request) (Response, error) {
 					value = val[0]
 				}
 			} else if source.Body != "" {
-				// Simple extraction from body (assumes key exists at root level)
 				var data map[string]interface{}
 				if err := json.Unmarshal(respBodyBytes, &data); err == nil {
 					if val, ok := data[source.Body]; ok {
@@ -186,8 +215,25 @@ func ExecuteRequest(req Request) (Response, error) {
 				}
 			}
 			if value != "" {
-				if _, err := SetEnvVar(varName, value); err != nil {
+				if err := SetEnvVar(varName, value); err != nil {
 					return Response{}, fmt.Errorf("error setting env var %s: %v", varName, err)
+				}
+			}
+		}
+	}
+
+	// Process Set-Cookie headers and save to config.yaml
+	if setCookies, ok := resp.Header["Set-Cookie"]; ok && len(setCookies) > 0 {
+		for _, cookie := range setCookies {
+			parts := strings.SplitN(cookie, ";", 2)
+			if len(parts) > 0 {
+				kv := strings.SplitN(parts[0], "=", 2)
+				if len(kv) == 2 {
+					name := strings.TrimSpace(kv[0])
+					value := strings.TrimSpace(kv[1])
+					if err := SetCookie(name, value); err != nil {
+						return Response{}, fmt.Errorf("error setting cookie %s: %v", name, err)
+					}
 				}
 			}
 		}
