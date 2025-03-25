@@ -19,16 +19,16 @@ type configFile struct {
 	Envs map[string]Env `yaml:"envs"`
 }
 
-// CheckRepoContext verifies if the current directory contains a lpost/ folder.
+// CheckRepoContext verifies if the current directory contains a lpost/ folder with config.yaml.
 func CheckRepoContext() error {
 	// Check lpost/ directory
-	if _, err := os.Stat("lpost"); os.IsNotExist(err) {
-		return fmt.Errorf("localpost context not found (lpost directory).\nMake sure you running in the right directory or run 'lpost init' to init localpost.\n")
+	if _, err := os.Stat(LocalpostDir); os.IsNotExist(err) {
+		return fmt.Errorf("lpost directory not found")
 	}
 
 	// Check config.yaml file
 	if _, err := os.Stat(ConfigFilePath); os.IsNotExist(err) {
-		return fmt.Errorf("localpost context not found (%s).\nMake sure you running in the right directory or run 'lpost init' to init localpost.\n", ConfigFilePath)
+		return fmt.Errorf("config.yaml not found")
 	}
 
 	// Read and validate config.yaml
