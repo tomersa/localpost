@@ -21,11 +21,13 @@ func main() {
 				return nil
 			}
 
-			// Check localpost/ context for all other commands
+			// Check localpost context for all other commands
 			if err := util.CheckRepoContext(); err != nil {
 				red := color.New(color.FgRed).SprintFunc()
-				return fmt.Errorf("%s", red(err))
+				cmd.SilenceUsage = true
+				return fmt.Errorf("%s\nMake sure you running in the right directory or run 'lpost init' to init localpost.", red(err))
 			}
+
 			// Handle --env flag
 			flag := cmd.PersistentFlags().Lookup("env")
 			if flag != nil {
@@ -41,7 +43,6 @@ func main() {
 	}
 	rootCmd.PersistentFlags().StringP("env", "e", "", "Environment to use (e.g., dev, prod); defaults to .localpost-config or 'dev'")
 
-	// Define command groups
 	rootCmd.AddGroup(&cobra.Group{ID: "requests", Title: "Request Commands"})
 	rootCmd.AddGroup(&cobra.Group{ID: "environment", Title: "Environment Commands"})
 
