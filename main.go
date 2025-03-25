@@ -10,11 +10,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const Version = "1.0.2"
+
 func main() {
 	rootCmd := &cobra.Command{
-		Use:   "localpost",
-		Short: "A CLI tool to manage and execute HTTP requests",
-		Long:  `A tool to save and execute HTTP requests stored in a Git repository.`,
+		Use:     "localpost",
+		Version: Version,
+		Short:   "A CLI tool to manage and execute HTTP requests",
+		Long:    `A tool to save and execute HTTP requests stored in a Git repository.`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			// Skip for init and completion commands
 			if cmd.Name() == "init" || cmd.Name() == "completion" {
