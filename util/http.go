@@ -35,8 +35,46 @@ func ParseRequest(filePath string) (Request, error) {
 	return req, nil
 }
 
+// loadRequest loads a request from a YAML file by name (e.g., "POST_login").
+func loadRequest(name string) (Request, error) {
+	filePath := filepath.Join(RequestsDir, fmt.Sprintf("%s.yaml", name))
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return Request{}, fmt.Errorf("error reading %s: %v", filePath, err)
+	}
+
+	var req Request
+	if err := yaml.Unmarshal(data, &req); err != nil {
+		return Request{}, fmt.Errorf("error parsing %s: %v", filePath, err)
+	}
+
+	parts := strings.SplitN(name, "_", 2)
+	if len(parts) != 2 {
+		return Request{}, fmt.Errorf("invalid request name format: %s (expected METHOD_name)", name)
+	}
+	req.Method = strings.ToUpper(parts[0])
+
+	if req.URL == "" {
+		return Request{}, fmt.Errorf("url is required in %s", filePath)
+	}
+
+	return req, nil
+}
+
 // ExecuteRequest executes an HTTP request and returns a Response struct.
 func ExecuteRequest(req Request) (Response, error) {
+	// Execute pre-flight request if specified
+	if req.PreFlight != "" {
+		preReq, err := loadRequest(req.PreFlight)
+		if err != nil {
+			return Response{}, fmt.Errorf("error loading pre-flight request %s: %v", req.PreFlight, err)
+		}
+		_, err = ExecuteRequest(preReq) // Recursively execute pre-flight
+		if err != nil {
+			return Response{}, fmt.Errorf("error executing pre-flight request %s: %v", req.PreFlight, err)
+		}
+	}
+
 	env, err := LoadEnv()
 	if err != nil {
 		return Response{}, fmt.Errorf("error loading env: %v", err)
@@ -236,6 +274,18 @@ func ExecuteRequest(req Request) (Response, error) {
 					}
 				}
 			}
+		}
+	}
+
+	// Execute post-flight request if specified
+	if req.PostFlight != "" {
+		postReq, err := loadRequest(req.PostFlight)
+		if err != nil {
+			return Response{}, fmt.Errorf("error loading post-flight request %s: %v", req.PostFlight, err)
+		}
+		_, err = ExecuteRequest(postReq) // Recursively execute post-flight
+		if err != nil {
+			return Response{}, fmt.Errorf("error executing post-flight request %s: %v", req.PostFlight, err)
 		}
 	}
 

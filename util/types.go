@@ -41,6 +41,6 @@ type Request struct {
 		Header string `yaml:"header,omitempty"`
 		Body   string `yaml:"body,omitempty"`
 	} `yaml:"set-env-var,omitempty"`
-	PreFlight  string `yaml:"pre-flight,omitempty"`  // Request to run before (future)
-	PostFlight string `yaml:"post-flight,omitempty"` // Request to run after (future)
+	PreFlight  string `yaml:"pre-flight,omitempty"`  // Request to run before
+	PostFlight string `yaml:"post-flight,omitempty"` // Request to run after
 }
