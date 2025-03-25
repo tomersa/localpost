@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +13,24 @@ import (
 	"github.com/moshe5745/localpost/util"
 	"github.com/spf13/cobra"
 )
+
+// formatJSON pretty-prints JSON with proper indentation for verbose output.
+func formatJSON(body string, contentType string) string {
+	if body == "" || contentType == "" || !strings.Contains(contentType, "application/json") {
+		return body
+	}
+	var prettyJSON bytes.Buffer
+	err := json.Indent(&prettyJSON, []byte(body), "", "  ")
+	if err != nil {
+		return body // Fallback to raw if unmarshalling fails
+	}
+	// Split and re-indent lines to align with "Body:"
+	lines := strings.Split(prettyJSON.String(), "\n")
+	for i, line := range lines {
+		lines[i] = "    " + line // Add 4-space prefix to align with "Body:"
+	}
+	return strings.Join(lines, "\n")
+}
 
 func requestCompletionFunc(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) >= 1 {
@@ -86,35 +106,45 @@ func NewRequestCommand() *cobra.Command {
 				statusColor = color.New(color.FgWhite).SprintFunc()
 			}
 
-			// Regular output: table
+			// Prepare bodies with JSON formatting if applicable
+			reqBodyDisplay := resp.ReqBody
+			respBodyDisplay := resp.RespBody
+			reqContentType := ""
+			respContentType := ""
+			if len(resp.ReqHeaders["Content-Type"]) > 0 {
+				reqContentType = strings.ToLower(strings.Split(resp.ReqHeaders["Content-Type"], ";")[0])
+			}
+			if len(resp.RespHeaders["Content-Type"]) > 0 {
+				respContentType = strings.ToLower(strings.Split(resp.RespHeaders["Content-Type"][0], ";")[0])
+			}
+			reqBodyDisplay = formatJSON(resp.ReqBody, reqContentType)
+			respBodyDisplay = formatJSON(resp.RespBody, respContentType)
+
+			// Apply preview limit for non-verbose
+			const maxChars = 500
+			previewBody := respBodyDisplay
+			if !verbose && len(respBodyDisplay) > maxChars {
+				previewBody = respBodyDisplay[:maxChars] + fmt.Sprintf("\n... (truncated, %d more characters)", len(respBodyDisplay)-maxChars)
+			}
+
 			if !verbose {
 				t := table.NewWriter()
 				t.SetOutputMirror(os.Stdout)
 
-				// Base table with Status and Time
-				t.AppendHeader(table.Row{"STATUS", "TIME"})
+				t.AppendHeader(table.Row{"STATUS", "TIME", "BODY"})
+				t.SetColumnConfigs([]table.ColumnConfig{
+					{Number: 1, WidthMax: 100},
+					{Number: 2, WidthMax: 100},
+					{Number: 3, WidthMax: 100},
+				})
 				row := table.Row{
 					statusColor(resp.Status),
 					fmt.Sprintf("%dms", resp.Duration.Milliseconds()),
-				}
-
-				// Add BODY column only for JSON
-				contentType := ""
-				if len(resp.RespHeaders["Content-Type"]) > 0 {
-					contentType = strings.ToLower(strings.Split(resp.RespHeaders["Content-Type"][0], ";")[0])
-				}
-				if contentType == "application/json" && resp.RespBody != "" {
-					t.AppendHeader(table.Row{"STATUS", "TIME", "BODY"})
-					row = append(row, resp.RespBody)
+					previewBody,
 				}
 
 				t.AppendRow(row)
 				t.Render()
-
-				// Print body separately for non-JSON types
-				if contentType != "application/json" && resp.RespBody != "" {
-					fmt.Printf("\nResponse Body:\n%s\n", resp.RespBody)
-				}
 				return
 			}
 
@@ -131,16 +161,16 @@ func NewRequestCommand() *cobra.Command {
 			}
 			fmt.Println(color.CyanString("Request"))
 			fmt.Println(color.HiBlueString("  Body:"))
-			fmt.Printf("    %s\n", resp.ReqBody)
+			fmt.Printf("%s\n", reqBodyDisplay)
 			fmt.Println("-----")
 			fmt.Println(color.CyanString("Response"))
 			fmt.Println(color.HiBlueString("  Headers:"))
 			for k, v := range resp.RespHeaders {
 				fmt.Printf("    %s: %s\n", k, v)
 			}
-			fmt.Println(color.CyanString("Request"))
+			fmt.Println(color.CyanString("Response"))
 			fmt.Println(color.HiBlueString("  Body:"))
-			fmt.Printf("    %s\n", resp.ReqBody)
+			fmt.Printf("%s\n", respBodyDisplay)
 		},
 		ValidArgsFunction: requestCompletionFunc,
 	}
