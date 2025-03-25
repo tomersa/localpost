@@ -169,6 +169,30 @@ func ExecuteRequest(req Request) (Response, error) {
 
 	req.URL = finalURL
 
+	if len(req.SetEnv) > 0 {
+		for varName, source := range req.SetEnv {
+			var value string
+			if source.Header != "" {
+				if val, ok := resp.Header[source.Header]; ok && len(val) > 0 {
+					value = val[0]
+				}
+			} else if source.Body != "" {
+				// Simple extraction from body (assumes key exists at root level)
+				var data map[string]interface{}
+				if err := json.Unmarshal(respBodyBytes, &data); err == nil {
+					if val, ok := data[source.Body]; ok {
+						value = fmt.Sprintf("%v", val)
+					}
+				}
+			}
+			if value != "" {
+				if _, err := SetEnvVar(varName, value); err != nil {
+					return Response{}, fmt.Errorf("error setting env var %s: %v", varName, err)
+				}
+			}
+		}
+	}
+
 	return Response{
 		ReqURL:      req.URL,
 		ReqHeaders:  req.Headers,
