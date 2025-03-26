@@ -1,6 +1,14 @@
 # Localpost
 Localpost is a CLI API client for storing, and executing HTTP request collections, with support for environment variables and dynamic response handling.
 
+## Features
+
+- **Auto Generation for Request Definition**
+- **Cookies Handling**
+- **Auto Login Before Requests**
+- **Pre-flight and Post-flight Requests**
+- **Environment Variables**
+
 ## How it works?
 Localpost uses your Git repo to share HTTP requests. Each request is a YAML file in the `requests/` folder, named `METHOD_request_nickname.yaml`, ready to commit and collaborate.
 
@@ -23,13 +31,11 @@ set-env-var:
     body: jwt-token
 ```
 
-You can easily create those definitions with:
-```bash
-lpost add-request
-```
+You can easily create those definitions with: `lpost add-request`
+
 > ℹ️ **Shorthand**: Use `lpost` alias that is already set for you.
 
-Now you can execute this request with `$: lpost -r POST_login`.
+Now you can execute this request with `lpost request POST_login` or with shorthand flag `lpost -r POST_login`.
 
 > ℹ️ **Collaboration**: Commit your request definitions files to your repo to collaborate with others, or manage them locally without sharing. Key files to include: the `requests/` directory and `.localpost-config`.
 
@@ -96,8 +102,6 @@ lpost set-env-var BASE_URL https://example.com
 ```
 ```bash
 lpost -r POST_login
-```
-```bash
 $: 
 +-----------+----------+
 | STATUS    | TIME     |
@@ -109,11 +113,10 @@ $:
 | {"TOKEN":"123456"}   |
 +----------------------+
 ```
+
 ```bash
 lpost -r POST_login -v
-# Verbose for debugging 
-```
-```bash
+# Verbose for debugging
 $:
 -----
 Status: 200 OK
