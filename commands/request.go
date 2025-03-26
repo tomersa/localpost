@@ -74,7 +74,7 @@ func NewRequestCommand() *cobra.Command {
 				os.Exit(1)
 			}
 
-			resp, err := util.ExecuteRequest(fileNameInput)
+			resp, err := util.HandleRequest(fileNameInput)
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)

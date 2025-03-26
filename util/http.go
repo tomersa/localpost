@@ -49,7 +49,7 @@ func ReadRequestDefinition(fileName string) (RequestDefinition, error) {
 }
 
 // executeHTTPRequest performs the actual HTTP request and returns the response.
-func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, error) {
+func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool) (Response, error) {
 	env, err := LoadEnv()
 	if err != nil {
 		return Response{}, fmt.Errorf("error loading env: %v", err)
@@ -230,13 +230,15 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 
 	// Stop spinner and print final status
 	s.Stop()
-	fmt.Printf("%s %d\n", fileName, response.StatusCode)
+	if showLog || resp.StatusCode >= 300 {
+		fmt.Printf("%s %d\n", fileName, response.StatusCode)
+	}
 
 	return response, nil
 }
 
-// ExecuteRequest executes an HTTP request and returns a Response struct.
-func ExecuteRequest(fileName string) (Response, error) {
+// HandleRequest executes an HTTP request and returns a Response struct.
+func HandleRequest(fileName string) (Response, error) {
 	reqDef, err := ReadRequestDefinition(fileName)
 	if err != nil {
 		return Response{}, err
@@ -245,14 +247,14 @@ func ExecuteRequest(fileName string) (Response, error) {
 	// Execute pre-flight request if specified
 	if reqDef.PreFlight != "" {
 		fmt.Printf("request: %s\n", reqDef.PreFlight)
-		_, err := ExecuteRequest(reqDef.PreFlight)
+		_, err := HandleRequest(reqDef.PreFlight)
 		if err != nil {
 			return Response{}, fmt.Errorf("error executing pre-flight request %s: %v", reqDef.PreFlight, err)
 		}
 	}
 
 	// Try the main request
-	resp, err := executeHTTPRequest(reqDef, fileName)
+	resp, err := executeHTTPRequest(reqDef, fileName, false)
 	if err != nil {
 		return Response{}, fmt.Errorf("error executing request: %v", err)
 	}
@@ -261,12 +263,12 @@ func ExecuteRequest(fileName string) (Response, error) {
 	if reqDef.Login != nil {
 		for _, status := range reqDef.Login.TriggeredBy {
 			if resp.StatusCode == status {
-				_, err := ExecuteRequest(reqDef.Login.Request)
+				_, err := HandleRequest(reqDef.Login.Request)
 				if err != nil {
 					return Response{}, fmt.Errorf("error executing login request %s: %v", reqDef.Login.Request, err)
 				}
 
-				resp, err = executeHTTPRequest(reqDef, fileName)
+				resp, err = executeHTTPRequest(reqDef, fileName, true)
 				if err != nil {
 					return Response{}, fmt.Errorf("error retrying request after login: %v", err)
 				}
@@ -318,7 +320,7 @@ func ExecuteRequest(fileName string) (Response, error) {
 
 	// Execute post-flight request if specified
 	if reqDef.PostFlight != "" {
-		_, err := ExecuteRequest(reqDef.PostFlight)
+		_, err := HandleRequest(reqDef.PostFlight)
 		if err != nil {
 			return Response{}, fmt.Errorf("error executing post-flight request %s: %v", reqDef.PostFlight, err)
 		}
