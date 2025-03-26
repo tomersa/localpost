@@ -59,13 +59,10 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
 	s.Prefix = fileName + " "
 	s.Start()
-	defer func() {
-		// Stop spinner unless login is triggered (handled in ExecuteRequest)
-		s.Stop()
-	}()
 
 	finalURL, err := replacePlaceholders(reqDef.URL, env.Vars)
 	if err != nil {
+		s.Stop()
 		return Response{}, err
 	}
 
@@ -183,6 +180,7 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 	client := &http.Client{}
 	httpReq, err := http.NewRequest(reqDef.Method, finalURL, body)
 	if err != nil {
+		s.Stop()
 		return Response{}, fmt.Errorf("error creating request: %v", err)
 	}
 
@@ -207,6 +205,7 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 	start := time.Now()
 	resp, err := client.Do(httpReq)
 	if err != nil {
+		s.Stop()
 		return Response{}, fmt.Errorf("error executing request: %v", err)
 	}
 	defer resp.Body.Close()
@@ -214,6 +213,7 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 	duration := time.Since(start)
 	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
+		s.Stop()
 		return Response{}, fmt.Errorf("error reading response: %v", err)
 	}
 	respBody := string(respBodyBytes)
@@ -228,7 +228,10 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 		Duration:    duration,
 	}
 
-	// Return response—login trigger handled in ExecuteRequest
+	// Stop spinner and print final status
+	s.Stop()
+	fmt.Printf("%s %d\n", fileName, response.StatusCode)
+
 	return response, nil
 }
 
@@ -263,7 +266,7 @@ func ExecuteRequest(fileName string) (Response, error) {
 					return Response{}, fmt.Errorf("error executing login request %s: %v", reqDef.Login.Request, err)
 				}
 
-				resp, err = executeHTTPRequest(reqDef, reqDef.Login.Request)
+				resp, err = executeHTTPRequest(reqDef, fileName)
 				if err != nil {
 					return Response{}, fmt.Errorf("error retrying request after login: %v", err)
 				}
