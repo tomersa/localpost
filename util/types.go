@@ -5,9 +5,9 @@ import "time"
 // Response holds the results of an HTTP request execution.
 type Response struct {
 	ReqURL      string              // Final URL after env var substitution
-	ReqHeaders  map[string]string   // Request headers sent
-	ReqBody     string              // Request body sent
-	Status      string              // HTTP status (e.g., "200 OK")
+	ReqHeaders  map[string]string   // RequestDefinition headers sent
+	ReqBody     string              // RequestDefinition body sent
+	StatusCode  int                 // HTTP status (e.g., "200 OK")
 	RespHeaders map[string][]string // Response headers received
 	RespBody    string              // Response body received
 	Duration    time.Duration       // Time taken for the request
@@ -31,8 +31,14 @@ type Body struct {
 	Text string `yaml:"text,omitempty"`
 }
 
-// Request defines an HTTP request from a YAML file.
-type Request struct {
+// LoginConfig defines the login request and status codes for retry.
+type LoginConfig struct {
+	Request     string `yaml:"request"`      // Name of the login request (e.g., "POST_login")
+	TriggeredBy []int  `yaml:"triggered_by"` // StatusCode codes triggering login (e.g., [400, 401, 403])
+}
+
+// RequestDefinition defines an HTTP request from a YAML file.
+type RequestDefinition struct {
 	Method  string            // Not in YAML, from filename
 	URL     string            `yaml:"url"` // Required
 	Headers map[string]string `yaml:"headers,omitempty"`
@@ -41,6 +47,7 @@ type Request struct {
 		Header string `yaml:"header,omitempty"`
 		Body   string `yaml:"body,omitempty"`
 	} `yaml:"set-env-var,omitempty"`
-	PreFlight  string `yaml:"pre-flight,omitempty"`  // Request to run before
-	PostFlight string `yaml:"post-flight,omitempty"` // Request to run after
+	PreFlight  string       `yaml:"pre-flight,omitempty"`  // RequestDefinition to run before
+	PostFlight string       `yaml:"post-flight,omitempty"` // RequestDefinition to run after
+	Login      *LoginConfig `yaml:"login,omitempty"`       // Login request to run on specified status codes
 }

@@ -22,7 +22,7 @@ func NewAddRequestCommand() *cobra.Command {
 			var name, urlPath, method, contentType string
 			var err error
 
-			// Request Nickname (Name)
+			// RequestDefinition Nickname (Name)
 			prompt := promptui.Prompt{
 				Label: "Enter request nickname (e.g., user-details)",
 				Validate: func(input string) error {
@@ -104,7 +104,7 @@ func NewAddRequestCommand() *cobra.Command {
 				}
 			}
 
-			req := util.Request{
+			req := util.RequestDefinition{
 				Method:  method,
 				Headers: headers,
 				Body:    body,

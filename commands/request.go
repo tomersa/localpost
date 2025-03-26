@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/fatih/color"
@@ -67,28 +67,14 @@ func NewRequestCommand() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		GroupID: "requests",
 		Run: func(cmd *cobra.Command, args []string) {
-			input := args[0]
-			parts := strings.SplitN(input, "_", 2)
+			fileNameInput := args[0]
+			parts := strings.SplitN(fileNameInput, "_", 2)
 			if len(parts) != 2 {
-				fmt.Printf("Error: invalid input format '%s', expected 'METHOD_name' (e.g., 'POST_login')\n", input)
-				os.Exit(1)
-			}
-			method := parts[0]
-			if method != strings.ToUpper(method) {
-				fmt.Printf("Error: method '%s' must be uppercase (e.g., GET, POST)\n", method)
+				fmt.Printf("Error: invalid fileNameInput format '%s', expected 'METHOD_name' (e.g., 'POST_login')\n", fileNameInput)
 				os.Exit(1)
 			}
 
-			filePath := filepath.Join(util.RequestsDir, fmt.Sprintf("%s.yaml", input))
-			req, err := util.ParseRequest(filePath)
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-
-			req.Method = method
-
-			resp, err := util.ExecuteRequest(req)
+			resp, err := util.ExecuteRequest(fileNameInput)
 			if err != nil {
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
@@ -96,11 +82,11 @@ func NewRequestCommand() *cobra.Command {
 
 			var statusColor func(a ...interface{}) string
 			switch {
-			case strings.HasPrefix(resp.Status, "2"):
+			case strings.HasPrefix(strconv.Itoa(resp.StatusCode), "2"):
 				statusColor = color.New(color.FgGreen).SprintFunc()
-			case strings.HasPrefix(resp.Status, "4"):
+			case strings.HasPrefix(strconv.Itoa(resp.StatusCode), "4"):
 				statusColor = color.New(color.FgYellow).SprintFunc()
-			case strings.HasPrefix(resp.Status, "5"):
+			case strings.HasPrefix(strconv.Itoa(resp.StatusCode), "5"):
 				statusColor = color.New(color.FgRed).SprintFunc()
 			default:
 				statusColor = color.New(color.FgWhite).SprintFunc()
@@ -138,7 +124,7 @@ func NewRequestCommand() *cobra.Command {
 					{Number: 3, WidthMax: 100},
 				})
 				row := table.Row{
-					statusColor(resp.Status),
+					statusColor(resp.StatusCode),
 					fmt.Sprintf("%dms", resp.Duration.Milliseconds()),
 					previewBody,
 				}
@@ -150,16 +136,16 @@ func NewRequestCommand() *cobra.Command {
 
 			// Verbose output: plain text with delimiter
 			fmt.Println("-----")
-			fmt.Printf("Status: %s\n", statusColor(resp.Status))
+			fmt.Printf("StatusCode: %s\n", statusColor(resp.StatusCode))
 			fmt.Printf("Time: %dms\n", resp.Duration.Milliseconds())
 			fmt.Printf("URL: %s\n", resp.ReqURL)
 			fmt.Println("-----")
-			fmt.Println(color.CyanString("Request"))
+			fmt.Println(color.CyanString("RequestDefinition"))
 			fmt.Println(color.HiBlueString("  Headers:"))
 			for k, v := range resp.ReqHeaders {
 				fmt.Printf("    %s: %s\n", k, v)
 			}
-			fmt.Println(color.CyanString("Request"))
+			fmt.Println(color.CyanString("RequestDefinition"))
 			fmt.Println(color.HiBlueString("  Body:"))
 			fmt.Printf("%s\n", reqBodyDisplay)
 			fmt.Println("-----")

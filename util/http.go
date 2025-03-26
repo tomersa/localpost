@@ -16,71 +16,45 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ParseRequest reads and parses a request YAML file into a Request struct.
-func ParseRequest(filePath string) (Request, error) {
+// ReadRequestDefinition reads and parses a request YAML file into a RequestDefinition struct.
+func ReadRequestDefinition(fileName string) (RequestDefinition, error) {
+	filePath := filepath.Join(RequestsDir, fileName+".yaml")
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return Request{}, fmt.Errorf("error reading %s: %v", filePath, err)
+		return RequestDefinition{}, fmt.Errorf("error reading %s: %v", fileName, err)
 	}
 
-	var req Request
+	var req RequestDefinition
 	if err := yaml.Unmarshal(data, &req); err != nil {
-		return Request{}, fmt.Errorf("error parsing %s: %v", filePath, err)
+		return RequestDefinition{}, fmt.Errorf("error parsing %s: %v", fileName, err)
 	}
 
-	if req.URL == "" {
-		return Request{}, fmt.Errorf("url is required in %s", filePath)
-	}
-
-	return req, nil
-}
-
-// loadRequest loads a request from a YAML file by name (e.g., "POST_login").
-func loadRequest(name string) (Request, error) {
-	filePath := filepath.Join(RequestsDir, fmt.Sprintf("%s.yaml", name))
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return Request{}, fmt.Errorf("error reading %s: %v", filePath, err)
-	}
-
-	var req Request
-	if err := yaml.Unmarshal(data, &req); err != nil {
-		return Request{}, fmt.Errorf("error parsing %s: %v", filePath, err)
-	}
-
-	parts := strings.SplitN(name, "_", 2)
+	parts := strings.SplitN(fileName, "_", 2) // Use fileName directly, no filepath.Base
 	if len(parts) != 2 {
-		return Request{}, fmt.Errorf("invalid request name format: %s (expected METHOD_name)", name)
+		return RequestDefinition{}, fmt.Errorf("invalid request name format: %s (expected METHOD_name)", fileName)
 	}
 	req.Method = strings.ToUpper(parts[0])
 
 	if req.URL == "" {
-		return Request{}, fmt.Errorf("url is required in %s", filePath)
+		return RequestDefinition{}, fmt.Errorf("url is required in %s", fileName)
+	}
+
+	// Set default login status to 401 if not specified
+	if req.Login != nil && len(req.Login.TriggeredBy) == 0 {
+		req.Login.TriggeredBy = []int{401}
 	}
 
 	return req, nil
 }
 
-// ExecuteRequest executes an HTTP request and returns a Response struct.
-func ExecuteRequest(req Request) (Response, error) {
-	// Execute pre-flight request if specified
-	if req.PreFlight != "" {
-		preReq, err := loadRequest(req.PreFlight)
-		if err != nil {
-			return Response{}, fmt.Errorf("error loading pre-flight request %s: %v", req.PreFlight, err)
-		}
-		_, err = ExecuteRequest(preReq) // Recursively execute pre-flight
-		if err != nil {
-			return Response{}, fmt.Errorf("error executing pre-flight request %s: %v", req.PreFlight, err)
-		}
-	}
-
+// executeHTTPRequest performs the actual HTTP request and returns the response.
+func executeHTTPRequest(reqDef RequestDefinition) (Response, error) {
 	env, err := LoadEnv()
 	if err != nil {
 		return Response{}, fmt.Errorf("error loading env: %v", err)
 	}
 
-	finalURL, err := replacePlaceholders(req.URL, env.Vars)
+	finalURL, err := replacePlaceholders(reqDef.URL, env.Vars)
 	if err != nil {
 		return Response{}, err
 	}
@@ -89,52 +63,53 @@ func ExecuteRequest(req Request) (Response, error) {
 		return Response{}, fmt.Errorf("invalid URL: %s (must resolve to http:// or https://)", finalURL)
 	}
 
-	for key, value := range req.Headers {
-		req.Headers[key], err = replacePlaceholders(value, env.Vars)
+	for key, value := range reqDef.Headers {
+		reqDef.Headers[key], err = replacePlaceholders(value, env.Vars)
 		if err != nil {
 			return Response{}, fmt.Errorf("error replacing placeholders in header %s: %v", key, err)
 		}
 	}
 
-	for key, value := range req.Body.Json {
+	for key, value := range reqDef.Body.Json {
 		if strVal, ok := value.(string); ok {
-			req.Body.Json[key], err = replacePlaceholders(strVal, env.Vars)
+			reqDef.Body.Json[key], err = replacePlaceholders(strVal, env.Vars)
 			if err != nil {
 				return Response{}, fmt.Errorf("error replacing placeholders in JSON body %s: %v", key, err)
 			}
 		}
 	}
-	for key, value := range req.Body.FormUrlEncoded {
-		req.Body.FormUrlEncoded[key], err = replacePlaceholders(value, env.Vars)
+	for key, value := range reqDef.Body.FormUrlEncoded {
+		reqDef.Body.FormUrlEncoded[key], err = replacePlaceholders(value, env.Vars)
 		if err != nil {
 			return Response{}, fmt.Errorf("error replacing placeholders in form-urlencoded %s: %v", key, err)
 		}
 	}
-	for key, value := range req.Body.Form.Fields {
-		req.Body.Form.Fields[key], err = replacePlaceholders(value, env.Vars)
+	for key, value := range reqDef.Body.Form.Fields {
+		reqDef.Body.Form.Fields[key], err = replacePlaceholders(value, env.Vars)
 		if err != nil {
 			return Response{}, fmt.Errorf("error replacing placeholders in form fields %s: %v", key, err)
 		}
 	}
-	for key, filePath := range req.Body.Form.Files {
-		req.Body.Form.Files[key], err = replacePlaceholders(filePath, env.Vars)
+	for key, filePath := range reqDef.Body.Form.Files {
+		reqDef.Body.Form.Files[key], err = replacePlaceholders(filePath, env.Vars)
 		if err != nil {
 			return Response{}, fmt.Errorf("error replacing placeholders in form files %s: %v", key, err)
 		}
 	}
-	req.Body.Text, err = replacePlaceholders(req.Body.Text, env.Vars)
+
+	reqDef.Body.Text, err = replacePlaceholders(reqDef.Body.Text, env.Vars)
 	if err != nil {
 		return Response{}, fmt.Errorf("error replacing placeholders in text body: %v", err)
 	}
 
 	var body io.Reader
-	contentType := req.Headers["Content-Type"]
+	contentType := reqDef.Headers["Content-Type"]
 	var reqBody string
 
 	switch contentType {
 	case "application/json", "":
-		if len(req.Body.Json) > 0 {
-			bodyBytes, err := json.Marshal(req.Body.Json)
+		if len(reqDef.Body.Json) > 0 {
+			bodyBytes, err := json.Marshal(reqDef.Body.Json)
 			if err != nil {
 				return Response{}, fmt.Errorf("error marshaling JSON body: %v", err)
 			}
@@ -145,23 +120,23 @@ func ExecuteRequest(req Request) (Response, error) {
 			}
 		}
 	case "application/x-www-form-urlencoded":
-		if len(req.Body.FormUrlEncoded) > 0 {
+		if len(reqDef.Body.FormUrlEncoded) > 0 {
 			data := make(url.Values)
-			for k, v := range req.Body.FormUrlEncoded {
+			for k, v := range reqDef.Body.FormUrlEncoded {
 				data.Set(k, v)
 			}
 			reqBody = data.Encode()
 			body = strings.NewReader(reqBody)
 		}
 	case "multipart/form-data":
-		if len(req.Body.Form.Fields) > 0 || len(req.Body.Form.Files) > 0 {
+		if len(reqDef.Body.Form.Fields) > 0 || len(reqDef.Body.Form.Files) > 0 {
 			bodyBuffer := &bytes.Buffer{}
 			writer := multipart.NewWriter(bodyBuffer)
 
-			for k, v := range req.Body.Form.Fields {
+			for k, v := range reqDef.Body.Form.Fields {
 				writer.WriteField(k, v)
 			}
-			for k, filePath := range req.Body.Form.Files {
+			for k, filePath := range reqDef.Body.Form.Files {
 				file, err := os.Open(filePath)
 				if err != nil {
 					return Response{}, fmt.Errorf("error opening file %s: %v", filePath, err)
@@ -185,30 +160,29 @@ func ExecuteRequest(req Request) (Response, error) {
 			contentType = writer.FormDataContentType()
 		}
 	case "text/plain":
-		if req.Body.Text != "" {
-			reqBody = req.Body.Text
+		if reqDef.Body.Text != "" {
+			reqBody = reqDef.Body.Text
 			body = strings.NewReader(reqBody)
 		}
 	default:
-		if len(req.Body.Json) > 0 || len(req.Body.FormUrlEncoded) > 0 || len(req.Body.Form.Fields) > 0 || len(req.Body.Form.Files) > 0 || req.Body.Text != "" {
+		if len(reqDef.Body.Json) > 0 || len(reqDef.Body.FormUrlEncoded) > 0 || len(reqDef.Body.Form.Fields) > 0 || len(reqDef.Body.Form.Files) > 0 || reqDef.Body.Text != "" {
 			return Response{}, fmt.Errorf("unsupported or missing Content-Type for body: %s", contentType)
 		}
 	}
 
 	client := &http.Client{}
-	httpReq, err := http.NewRequest(req.Method, finalURL, body)
+	httpReq, err := http.NewRequest(reqDef.Method, finalURL, body)
 	if err != nil {
 		return Response{}, fmt.Errorf("error creating request: %v", err)
 	}
 
-	for key, value := range req.Headers {
+	for key, value := range reqDef.Headers {
 		httpReq.Header.Set(key, value)
 	}
 	if contentType != "" {
 		httpReq.Header.Set("Content-Type", contentType)
 	}
 
-	// Add stored cookies to the request
 	if len(env.Cookies) > 0 {
 		cookieHeader := ""
 		for name, value := range env.Cookies {
@@ -226,27 +200,83 @@ func ExecuteRequest(req Request) (Response, error) {
 		return Response{}, fmt.Errorf("error executing request: %v", err)
 	}
 	defer resp.Body.Close()
-	duration := time.Since(start)
 
+	duration := time.Since(start)
 	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return Response{}, fmt.Errorf("error reading response: %v", err)
 	}
 	respBody := string(respBodyBytes)
 
-	req.URL = finalURL
+	return Response{
+		ReqURL:      finalURL,
+		ReqHeaders:  reqDef.Headers,
+		ReqBody:     reqBody,
+		StatusCode:  resp.StatusCode, // Updated to int
+		RespHeaders: resp.Header,
+		RespBody:    respBody,
+		Duration:    duration,
+	}, nil
+}
+
+// ExecuteRequest executes an HTTP request and returns a Response struct.
+func ExecuteRequest(fileName string) (Response, error) {
+	reqDef, err := ReadRequestDefinition(fileName)
+	if err != nil {
+		return Response{}, err
+	}
+
+	// Execute pre-flight request if specified
+	if reqDef.PreFlight != "" {
+		fmt.Printf("request: %s\n", reqDef.PreFlight)
+		preResp, err := ExecuteRequest(reqDef.PreFlight)
+		if err != nil {
+			return Response{}, fmt.Errorf("error executing pre-flight request %s: %v", reqDef.PreFlight, err)
+		}
+		fmt.Printf("response: %d, %dms\n", preResp.StatusCode, preResp.Duration.Milliseconds())
+	}
+
+	// Try the main request
+	fmt.Printf("request: %s\n", fileName)
+	resp, err := executeHTTPRequest(reqDef)
+	if err != nil {
+		return Response{}, fmt.Errorf("error executing request: %v", err)
+	}
+
+	// Check for specified status codes and handle login if specified
+	if reqDef.Login != nil {
+		for _, status := range reqDef.Login.TriggeredBy {
+			if resp.StatusCode == status {
+				fmt.Printf("request: %s\n", reqDef.Login.Request)
+				loginResp, err := ExecuteRequest(reqDef.Login.Request)
+				if err != nil {
+					return Response{}, fmt.Errorf("error executing login request %s: %v", reqDef.Login.Request, err)
+				}
+				fmt.Printf("response: %d, %dms\n", loginResp.StatusCode, loginResp.Duration.Milliseconds())
+
+				fmt.Printf("retry request: %s\n", fileName)
+				resp, err = executeHTTPRequest(reqDef)
+				if err != nil {
+					return Response{}, fmt.Errorf("error retrying request after login: %v", err)
+				}
+				break
+			}
+		}
+	}
+
+	fmt.Printf("response: %d, %dms\n", resp.StatusCode, resp.Duration.Milliseconds())
 
 	// Process set-env-var if present
-	if len(req.SetEnv) > 0 {
-		for varName, source := range req.SetEnv {
+	if len(reqDef.SetEnv) > 0 {
+		for varName, source := range reqDef.SetEnv {
 			var value string
 			if source.Header != "" {
-				if val, ok := resp.Header[source.Header]; ok && len(val) > 0 {
+				if val, ok := resp.RespHeaders[source.Header]; ok && len(val) > 0 {
 					value = val[0]
 				}
 			} else if source.Body != "" {
 				var data map[string]interface{}
-				if err := json.Unmarshal(respBodyBytes, &data); err == nil {
+				if err := json.Unmarshal([]byte(resp.RespBody), &data); err == nil {
 					if val, ok := data[source.Body]; ok {
 						value = fmt.Sprintf("%v", val)
 					}
@@ -261,7 +291,7 @@ func ExecuteRequest(req Request) (Response, error) {
 	}
 
 	// Process Set-Cookie headers and save to config.yaml
-	if setCookies, ok := resp.Header["Set-Cookie"]; ok && len(setCookies) > 0 {
+	if setCookies, ok := resp.RespHeaders["Set-Cookie"]; ok && len(setCookies) > 0 {
 		for _, cookie := range setCookies {
 			parts := strings.SplitN(cookie, ";", 2)
 			if len(parts) > 0 {
@@ -278,24 +308,14 @@ func ExecuteRequest(req Request) (Response, error) {
 	}
 
 	// Execute post-flight request if specified
-	if req.PostFlight != "" {
-		postReq, err := loadRequest(req.PostFlight)
+	if reqDef.PostFlight != "" {
+		fmt.Printf("request: %s\n", reqDef.PostFlight)
+		postResp, err := ExecuteRequest(reqDef.PostFlight)
 		if err != nil {
-			return Response{}, fmt.Errorf("error loading post-flight request %s: %v", req.PostFlight, err)
+			return Response{}, fmt.Errorf("error executing post-flight request %s: %v", reqDef.PostFlight, err)
 		}
-		_, err = ExecuteRequest(postReq) // Recursively execute post-flight
-		if err != nil {
-			return Response{}, fmt.Errorf("error executing post-flight request %s: %v", req.PostFlight, err)
-		}
+		fmt.Printf("response: %d, %dms\n", postResp.StatusCode, postResp.Duration.Milliseconds())
 	}
 
-	return Response{
-		ReqURL:      req.URL,
-		ReqHeaders:  req.Headers,
-		ReqBody:     reqBody,
-		Status:      resp.Status,
-		RespHeaders: resp.Header,
-		RespBody:    respBody,
-		Duration:    duration,
-	}, nil
+	return resp, nil
 }

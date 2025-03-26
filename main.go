@@ -46,7 +46,7 @@ func main() {
 	}
 	rootCmd.PersistentFlags().StringP("env", "e", "", "Environment to use (e.g., dev, prod); defaults to .localpost-config or 'dev'")
 
-	rootCmd.AddGroup(&cobra.Group{ID: "requests", Title: "Request Commands"})
+	rootCmd.AddGroup(&cobra.Group{ID: "requests", Title: "RequestDefinition Commands"})
 	rootCmd.AddGroup(&cobra.Group{ID: "environment", Title: "Environment Commands"})
 
 	rootCmd.AddCommand(commands.NewInitCommand())
