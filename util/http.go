@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/briandowns/spinner"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -29,7 +30,7 @@ func ReadRequestDefinition(fileName string) (RequestDefinition, error) {
 		return RequestDefinition{}, fmt.Errorf("error parsing %s: %v", fileName, err)
 	}
 
-	parts := strings.SplitN(fileName, "_", 2) // Use fileName directly, no filepath.Base
+	parts := strings.SplitN(fileName, "_", 2)
 	if len(parts) != 2 {
 		return RequestDefinition{}, fmt.Errorf("invalid request name format: %s (expected METHOD_name)", fileName)
 	}
@@ -48,11 +49,20 @@ func ReadRequestDefinition(fileName string) (RequestDefinition, error) {
 }
 
 // executeHTTPRequest performs the actual HTTP request and returns the response.
-func executeHTTPRequest(reqDef RequestDefinition) (Response, error) {
+func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, error) {
 	env, err := LoadEnv()
 	if err != nil {
 		return Response{}, fmt.Errorf("error loading env: %v", err)
 	}
+
+	// Start spinner
+	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
+	s.Prefix = fileName + " "
+	s.Start()
+	defer func() {
+		// Stop spinner unless login is triggered (handled in ExecuteRequest)
+		s.Stop()
+	}()
 
 	finalURL, err := replacePlaceholders(reqDef.URL, env.Vars)
 	if err != nil {
@@ -208,15 +218,18 @@ func executeHTTPRequest(reqDef RequestDefinition) (Response, error) {
 	}
 	respBody := string(respBodyBytes)
 
-	return Response{
+	response := Response{
 		ReqURL:      finalURL,
 		ReqHeaders:  reqDef.Headers,
 		ReqBody:     reqBody,
-		StatusCode:  resp.StatusCode, // Updated to int
+		StatusCode:  resp.StatusCode,
 		RespHeaders: resp.Header,
 		RespBody:    respBody,
 		Duration:    duration,
-	}, nil
+	}
+
+	// Return response—login trigger handled in ExecuteRequest
+	return response, nil
 }
 
 // ExecuteRequest executes an HTTP request and returns a Response struct.
@@ -229,16 +242,14 @@ func ExecuteRequest(fileName string) (Response, error) {
 	// Execute pre-flight request if specified
 	if reqDef.PreFlight != "" {
 		fmt.Printf("request: %s\n", reqDef.PreFlight)
-		preResp, err := ExecuteRequest(reqDef.PreFlight)
+		_, err := ExecuteRequest(reqDef.PreFlight)
 		if err != nil {
 			return Response{}, fmt.Errorf("error executing pre-flight request %s: %v", reqDef.PreFlight, err)
 		}
-		fmt.Printf("response: %d, %dms\n", preResp.StatusCode, preResp.Duration.Milliseconds())
 	}
 
 	// Try the main request
-	fmt.Printf("request: %s\n", fileName)
-	resp, err := executeHTTPRequest(reqDef)
+	resp, err := executeHTTPRequest(reqDef, fileName)
 	if err != nil {
 		return Response{}, fmt.Errorf("error executing request: %v", err)
 	}
@@ -247,15 +258,12 @@ func ExecuteRequest(fileName string) (Response, error) {
 	if reqDef.Login != nil {
 		for _, status := range reqDef.Login.TriggeredBy {
 			if resp.StatusCode == status {
-				fmt.Printf("request: %s\n", reqDef.Login.Request)
-				loginResp, err := ExecuteRequest(reqDef.Login.Request)
+				_, err := ExecuteRequest(reqDef.Login.Request)
 				if err != nil {
 					return Response{}, fmt.Errorf("error executing login request %s: %v", reqDef.Login.Request, err)
 				}
-				fmt.Printf("response: %d, %dms\n", loginResp.StatusCode, loginResp.Duration.Milliseconds())
 
-				fmt.Printf("retry request: %s\n", fileName)
-				resp, err = executeHTTPRequest(reqDef)
+				resp, err = executeHTTPRequest(reqDef, reqDef.Login.Request)
 				if err != nil {
 					return Response{}, fmt.Errorf("error retrying request after login: %v", err)
 				}
@@ -263,8 +271,6 @@ func ExecuteRequest(fileName string) (Response, error) {
 			}
 		}
 	}
-
-	fmt.Printf("response: %d, %dms\n", resp.StatusCode, resp.Duration.Milliseconds())
 
 	// Process set-env-var if present
 	if len(reqDef.SetEnv) > 0 {
@@ -309,12 +315,10 @@ func ExecuteRequest(fileName string) (Response, error) {
 
 	// Execute post-flight request if specified
 	if reqDef.PostFlight != "" {
-		fmt.Printf("request: %s\n", reqDef.PostFlight)
-		postResp, err := ExecuteRequest(reqDef.PostFlight)
+		_, err := ExecuteRequest(reqDef.PostFlight)
 		if err != nil {
 			return Response{}, fmt.Errorf("error executing post-flight request %s: %v", reqDef.PostFlight, err)
 		}
-		fmt.Printf("response: %d, %dms\n", postResp.StatusCode, postResp.Duration.Milliseconds())
 	}
 
 	return resp, nil
