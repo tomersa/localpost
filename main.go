@@ -52,6 +52,7 @@ func main() {
 	rootCmd.AddCommand(commands.NewInitCommand())
 	rootCmd.AddCommand(commands.NewAddRequestCommand())
 	rootCmd.AddCommand(commands.NewRequestCommand())
+	rootCmd.AddCommand(commands.NewTestCommand())
 	rootCmd.AddCommand(commands.NewSetEnvCommand())
 	rootCmd.AddCommand(commands.NewSetEnvVarCommand())
 	rootCmd.AddCommand(commands.NewShowEnvCommand())

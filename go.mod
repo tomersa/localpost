@@ -10,9 +10,11 @@ require (
 )
 
 require (
+	github.com/bombsimon/jtd-infer-go v0.1.0 // indirect
 	github.com/briandowns/spinner v1.23.2 // indirect
 	github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/jsontypedef/json-typedef-go v0.0.0-20200503043955-4280071bd745 // indirect
 	github.com/manifoldco/promptui v0.9.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

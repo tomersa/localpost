@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	jtdinfer "github.com/bombsimon/jtd-infer-go"
 	"github.com/briandowns/spinner"
 	"io"
 	"mime/multipart"
@@ -232,6 +233,16 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 	s.Stop()
 	if showLog || resp.StatusCode >= 300 {
 		fmt.Printf("%s %d\n", fileName, response.StatusCode)
+	}
+
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && strings.TrimSpace(respBody) != "" {
+		schema := jtdinfer.InferStrings([]string{respBody}, jtdinfer.WithoutHints()).IntoSchema()
+		schemaPath := filepath.Join("lpost/schemas", fileName+".jtd.json")
+		schemaBytes, err := json.MarshalIndent(schema, "", "  ")
+		if err == nil {
+			os.MkdirAll(filepath.Dir(schemaPath), 0755)
+			os.WriteFile(schemaPath, schemaBytes, 0644)
+		}
 	}
 
 	return response, nil

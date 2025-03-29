@@ -12,7 +12,7 @@ import (
 
 const LocalpostDir = "lpost"
 const RequestsDir = LocalpostDir + "/requests"
-const ResponsesDir = LocalpostDir + "/responses"
+const SchemasDir = LocalpostDir + "/schemas"
 const ConfigFile = "config.yaml"
 const ConfigFilePath = LocalpostDir + "/" + ConfigFile
 
