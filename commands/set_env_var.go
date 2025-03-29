@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewSetEnvVarCommand() *cobra.Command {
+func SetEnvVarCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "set-env-var <key> <value>",
 		Short:   "Set an environment variable for the current environment",

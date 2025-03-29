@@ -41,11 +41,6 @@ func ReadRequestDefinition(fileName string) (RequestDefinition, error) {
 		return RequestDefinition{}, fmt.Errorf("url is required in %s", fileName)
 	}
 
-	// Set default login status to 401 if not specified
-	if req.Login != nil && len(req.Login.TriggeredBy) == 0 {
-		req.Login.TriggeredBy = []int{401}
-	}
-
 	return req, nil
 }
 
@@ -74,6 +69,7 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 	for key, value := range reqDef.Headers {
 		reqDef.Headers[key], err = replacePlaceholders(value, env.Vars)
 		if err != nil {
+			s.Stop()
 			return Response{}, fmt.Errorf("error replacing placeholders in header %s: %v", key, err)
 		}
 	}
@@ -82,6 +78,7 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 		if strVal, ok := value.(string); ok {
 			reqDef.Body.Json[key], err = replacePlaceholders(strVal, env.Vars)
 			if err != nil {
+				s.Stop()
 				return Response{}, fmt.Errorf("error replacing placeholders in JSON body %s: %v", key, err)
 			}
 		}
@@ -89,24 +86,28 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 	for key, value := range reqDef.Body.FormUrlEncoded {
 		reqDef.Body.FormUrlEncoded[key], err = replacePlaceholders(value, env.Vars)
 		if err != nil {
+			s.Stop()
 			return Response{}, fmt.Errorf("error replacing placeholders in form-urlencoded %s: %v", key, err)
 		}
 	}
 	for key, value := range reqDef.Body.Form.Fields {
 		reqDef.Body.Form.Fields[key], err = replacePlaceholders(value, env.Vars)
 		if err != nil {
+			s.Stop()
 			return Response{}, fmt.Errorf("error replacing placeholders in form fields %s: %v", key, err)
 		}
 	}
 	for key, filePath := range reqDef.Body.Form.Files {
 		reqDef.Body.Form.Files[key], err = replacePlaceholders(filePath, env.Vars)
 		if err != nil {
+			s.Stop()
 			return Response{}, fmt.Errorf("error replacing placeholders in form files %s: %v", key, err)
 		}
 	}
 
 	reqDef.Body.Text, err = replacePlaceholders(reqDef.Body.Text, env.Vars)
 	if err != nil {
+		s.Stop()
 		return Response{}, fmt.Errorf("error replacing placeholders in text body: %v", err)
 	}
 
@@ -119,6 +120,7 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 		if len(reqDef.Body.Json) > 0 {
 			bodyBytes, err := json.Marshal(reqDef.Body.Json)
 			if err != nil {
+				s.Stop()
 				return Response{}, fmt.Errorf("error marshaling JSON body: %v", err)
 			}
 			reqBody = string(bodyBytes)
@@ -147,20 +149,24 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 			for k, filePath := range reqDef.Body.Form.Files {
 				file, err := os.Open(filePath)
 				if err != nil {
+					s.Stop()
 					return Response{}, fmt.Errorf("error opening file %s: %v", filePath, err)
 				}
 				defer file.Close()
 				part, err := writer.CreateFormFile(k, filepath.Base(filePath))
 				if err != nil {
+					s.Stop()
 					return Response{}, fmt.Errorf("error creating form file %s: %v", k, err)
 				}
 				_, err = io.Copy(part, file)
 				if err != nil {
+					s.Stop()
 					return Response{}, fmt.Errorf("error writing file %s to form: %v", k, err)
 				}
 			}
 			err := writer.Close()
 			if err != nil {
+				s.Stop()
 				return Response{}, fmt.Errorf("error closing form writer: %v", err)
 			}
 			reqBody = bodyBuffer.String()
@@ -174,6 +180,7 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 		}
 	default:
 		if len(reqDef.Body.Json) > 0 || len(reqDef.Body.FormUrlEncoded) > 0 || len(reqDef.Body.Form.Fields) > 0 || len(reqDef.Body.Form.Files) > 0 || reqDef.Body.Text != "" {
+			s.Stop()
 			return Response{}, fmt.Errorf("unsupported or missing Content-Type for body: %s", contentType)
 		}
 	}
@@ -245,45 +252,34 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 		}
 	}
 
+	s.Stop()
 	return response, nil
 }
 
 // HandleRequest executes an HTTP request and returns a Response struct.
 func HandleRequest(fileName string) (Response, error) {
+	env, err := LoadEnv()
+	if err != nil {
+		return Response{}, err
+	}
+
 	reqDef, err := ReadRequestDefinition(fileName)
 	if err != nil {
 		return Response{}, err
 	}
 
-	// Execute pre-flight request if specified
-	if reqDef.PreFlight != "" {
-		fmt.Printf("request: %s\n", reqDef.PreFlight)
-		_, err := HandleRequest(reqDef.PreFlight)
-		if err != nil {
-			return Response{}, fmt.Errorf("error executing pre-flight request %s: %v", reqDef.PreFlight, err)
-		}
-	}
-
-	// Try the main request
+	// Main request with auto-login
 	resp, err := executeHTTPRequest(reqDef, fileName, false)
 	if err != nil {
 		return Response{}, fmt.Errorf("error executing request: %v", err)
 	}
 
-	// Check for specified status codes and handle login if specified
-	if reqDef.Login != nil {
-		for _, status := range reqDef.Login.TriggeredBy {
+	// Auto-login if status matches env.Login.TriggeredBy
+	if env.Login != nil {
+		for _, status := range env.Login.TriggeredBy {
 			if resp.StatusCode == status {
-				_, err := HandleRequest(reqDef.Login.Request)
-				if err != nil {
-					return Response{}, fmt.Errorf("error executing login request %s: %v", reqDef.Login.Request, err)
-				}
-
-				resp, err = executeHTTPRequest(reqDef, fileName, true)
-				if err != nil {
-					return Response{}, fmt.Errorf("error retrying request after login: %v", err)
-				}
-				break
+				// Retry the original request
+				return executeHTTPRequest(reqDef, fileName, true)
 			}
 		}
 	}
@@ -326,14 +322,6 @@ func HandleRequest(fileName string) (Response, error) {
 					}
 				}
 			}
-		}
-	}
-
-	// Execute post-flight request if specified
-	if reqDef.PostFlight != "" {
-		_, err := HandleRequest(reqDef.PostFlight)
-		if err != nil {
-			return Response{}, fmt.Errorf("error executing post-flight request %s: %v", reqDef.PostFlight, err)
 		}
 	}
 

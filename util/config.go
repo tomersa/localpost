@@ -34,12 +34,10 @@ func CheckRepoContext() error {
 }
 
 // ReadConfig reads and returns the parsed config.yaml with defaults applied if missing.
-// Creates the file with a default config if it doesn’t exist.
 func ReadConfig() (*configFile, error) {
 	data, err := os.ReadFile(ConfigFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Create default config if file doesn't exist
 			defaultConfig := &configFile{
 				Env: "dev",
 				Envs: map[string]Env{
@@ -59,7 +57,7 @@ func ReadConfig() (*configFile, error) {
 		return nil, fmt.Errorf("error parsing %s: %v", ConfigFilePath, err)
 	}
 
-	// Apply defaults if fields are missing
+	// Apply defaults
 	if config.Env == "" {
 		config.Env = "dev"
 	}

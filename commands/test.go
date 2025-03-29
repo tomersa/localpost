@@ -18,7 +18,7 @@ func removeExtension(filename string) string {
 	return base[:len(base)-len(ext)] // Returns filename without extension
 }
 
-func NewTestCommand() *cobra.Command {
+func TestCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "test",
 		Short: "Run all requests and validate against stored JTD schemas",

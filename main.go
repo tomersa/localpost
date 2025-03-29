@@ -49,14 +49,14 @@ func main() {
 	rootCmd.AddGroup(&cobra.Group{ID: "requests", Title: "RequestDefinition Commands"})
 	rootCmd.AddGroup(&cobra.Group{ID: "environment", Title: "Environment Commands"})
 
-	rootCmd.AddCommand(commands.NewInitCommand())
-	rootCmd.AddCommand(commands.NewAddRequestCommand())
-	rootCmd.AddCommand(commands.NewRequestCommand())
-	rootCmd.AddCommand(commands.NewTestCommand())
-	rootCmd.AddCommand(commands.NewSetEnvCommand())
-	rootCmd.AddCommand(commands.NewSetEnvVarCommand())
-	rootCmd.AddCommand(commands.NewShowEnvCommand())
-	rootCmd.AddCommand(commands.NewCompletionCommand())
+	rootCmd.AddCommand(commands.InitCmd())
+	rootCmd.AddCommand(commands.AddRequestCmd())
+	rootCmd.AddCommand(commands.RequestCmd())
+	rootCmd.AddCommand(commands.TestCmd())
+	rootCmd.AddCommand(commands.SetEnvCmd())
+	rootCmd.AddCommand(commands.SetEnvVarCmd())
+	rootCmd.AddCommand(commands.ShowEnvCmd())
+	rootCmd.AddCommand(commands.CompletionCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

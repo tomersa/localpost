@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func NewInitCommand() *cobra.Command {
+func InitCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
 		Short: "Initialize a localpost project directory",

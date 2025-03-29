@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func NewShowEnvCommand() *cobra.Command {
+func ShowEnvCmd() *cobra.Command {
 	var showAll bool
 	cmd := &cobra.Command{
 		Use:     "show-env",

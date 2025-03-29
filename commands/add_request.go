@@ -12,7 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func NewAddRequestCommand() *cobra.Command {
+func AddRequestCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "add-request",
 		Short:   "Create a new request YAML file interactively",

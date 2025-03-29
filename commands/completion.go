@@ -18,7 +18,7 @@ const (
 	ShellFish Shell = "fish"
 )
 
-func NewCompletionCommand() *cobra.Command {
+func CompletionCmd() *cobra.Command {
 	var shell Shell
 	cmd := &cobra.Command{
 		Use:   "completion",

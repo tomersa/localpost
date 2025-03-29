@@ -6,8 +6,8 @@ Localpost is a CLI API client for storing, and executing HTTP request collection
 - **Auto Generation for Request Definition**
 - **Cookies Handling**
 - **Auto Login Before Requests**
-- **Pre-flight and Post-flight Requests**
 - **Environment Variables**
+- **Baseline testing**
 
 ## How it works?
 Localpost uses your Git repo to share HTTP requests. Each request is a YAML file in the `requests/` folder, named `METHOD_request_nickname.yaml`, ready to commit and collaborate.
@@ -37,7 +37,7 @@ You can easily create those definitions with: `lpost add-request`
 
 Now you can execute this request with `lpost request POST_login` or with shorthand flag `lpost -r POST_login`.
 
-> ℹ️ **Collaboration**: Commit your request definitions files to your repo to collaborate with others, or manage them locally without sharing. Key files to include: the `requests/` directory and `.localpost-config`.
+> ℹ️ **Collaboration**: Commit your request definitions files to your repo to collaborate with others, or manage them locally without sharing. All the files is stored in `lpost`.
 
 
 ##  Installation
@@ -144,7 +144,7 @@ Request
 - Use `lpost` to store and manage variables for different environments (e.g., `dev`, `prod`).
 - Let you set custom values (e.g., API endpoints, credentials) per environment.
 
-> ℹ️ **Note**: These environment variables are unique to `localpost` and stored in `.localpost-config`—they’re separate from your shell’s environment, `.env` files, or other tools.
+> ℹ️ **Note**: These environment variables are unique to `localpost` and stored in `config.yaml`—they’re separate from your shell’s environment, `.env` files, or other tools.
 
 ### Setting Environment Variables
 You can set variables in two ways:
@@ -171,19 +171,22 @@ headers:
 ## Configuration file
 For storing the collection env vars and current env used.
 
-- **File**: `.localpost-config` in the current directory.
+- **File**: `config.yaml` in the `lpost` directory.
 - **Format**:
   ```yaml
   env: dev # Current env used
   envs:    # All envs list
     dev:
-      BASE_URL: https://api.example.com
+      BASE_URL: https://api.dev.com
       TOKEN: 123
+    login:
+      request: POST_login
+      triggered_by: [400, 401, 403] #Default is [401]
     prod:
       BASE_URL: https://api.prod.com
       TOKEN: 456
   ```
-> ℹ️ Note: `.localpost-config` is created automatically on first use with a default `env: dev` if it doesn’t exist.
+> ℹ️ Note: `config.yaml` is created automatically on first use with a default `env: dev` if it doesn’t exist.
 
 ### Request YAML Format
 Request files are stored in the `requests/` directory. Example (`requests/POST_login.yaml`):
@@ -203,14 +206,16 @@ set-env-var:
 
 ## Commands full list
 
-| Command                  | Description                                                                                                        | Example Usage                         |
-|--------------------------|--------------------------------------------------------------------------------------------------------------------|---------------------------------------|
-| `add-request`            | Create a new request YAML file interactively with prompts for nickname, URL, method, body type, and Accept header. | `$: lpost add-request`                |
-| `request <METHOD_name>`  | Execute a request from a YAML file in the `requests/` directory. Shorthand: `-r`.                                  | `$: lpost -r POST_login`             |
-| `set-env <env>`          | Set the current environment in `.localpost-config`.                                                                | `$: lpost set-env prod`              |
-| `set-env-var <key> <value>` | Set an environment variable for the current environment in `.localpost-config`.                                    | `$: lpost set-env-var BASE_URL https://api.example.com` |
-| `show-env`               | Display the current environment and variables from `.localpost-config`. Use `--all` for the full config.           | `$: lpost show-env` or `$: lpost show-env --all` |
-| `completion`             | Output completion script for your shell (bash, zsh, fish) to stdout. Requires `--shell` flag.                      | `$: source <(lpost completion --shell zsh)` |
+| Command                  | Description                                                                                                  | Example Usage                         |
+|--------------------------|--------------------------------------------------------------------------------------------------------------|---------------------------------------|
+| `init`                   | Initialize `localpost`. creates `lpost/` directory with `config.yaml` and `requests/`.             | `$: lpost init`                      |
+| `add-request`            | Create a new request YAML file interactively with prompts for nickname, URL, method, and body type.          | `$: lpost add-request`               |
+| `request <METHOD_name>`  | Execute a request from a YAML file in `requests/`. Use `--infer-schema` to generate JTD schema. Shorthand: `-r`. | `$: lpost -r POST_login` or `$: lpost request GET_config --infer-schema` |
+| `test`                   | Run all requests in `requests/` and validate responses against stored JTD schemas in `schemas/`.             | `$: lpost test`                      |
+| `set-env <env>`          | Set the current environment in `config.yaml`.                                                                | `$: lpost set-env prod`              |
+| `set-env-var <key> <value>` | Set an environment variable for the current environment in `config.yaml`.                                    | `$: lpost set-env-var BASE_URL https://api.example.com` |
+| `show-env`               | Display the current environment and variables from `config.yaml`. Use `--all` for the full config.           | `$: lpost show-env` or `$: lpost show-env --all` |
+| `completion`             | Output completion script for your shell (bash, zsh, fish) to stdout. Requires `--shell` flag.                | `$: source <(lpost completion --shell zsh)` |
 
 - **Global Flag**: Override the environment temporarily with `-e` or `--env`:
   ```bash

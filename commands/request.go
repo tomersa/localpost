@@ -58,7 +58,7 @@ func requestCompletionFunc(_ *cobra.Command, args []string, toComplete string) (
 	return nil, cobra.ShellCompDirectiveNoFileComp
 }
 
-func NewRequestCommand() *cobra.Command {
+func RequestCmd() *cobra.Command {
 	var verbose bool
 	cmd := &cobra.Command{
 		Use:     "request <METHOD_name>",
