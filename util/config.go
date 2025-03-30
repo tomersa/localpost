@@ -33,6 +33,20 @@ func CheckRepoContext() error {
 	return nil
 }
 
+// ClearCookies resets the cookies for the current environment in config.yaml.
+func ClearCookies() error {
+	config, err := ReadConfig()
+	if err != nil {
+		return fmt.Errorf("error reading config: %v", err)
+	}
+
+	currentEnv := config.Envs[config.Env]
+	currentEnv.Cookies = make(map[string]string)
+	config.Envs[config.Env] = currentEnv
+
+	return writeConfig(config)
+}
+
 // ReadConfig reads and returns the parsed config.yaml with defaults applied if missing.
 func ReadConfig() (*configFile, error) {
 	data, err := os.ReadFile(ConfigFilePath)
