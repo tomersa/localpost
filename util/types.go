@@ -13,12 +13,11 @@ type Response struct {
 	Duration    time.Duration       // Time taken for the request
 }
 
-// Env represents an environment with its variables, cookies, and login config.
+// Env represents an environment with its variables and login config.
 type Env struct {
-	Name    string            `yaml:"-"`       // Current environment name
-	Vars    map[string]string `yaml:",inline"` // Environment variables
-	Cookies map[string]string `yaml:"cookies,omitempty"`
-	Login   *LoginConfig      `yaml:"login,omitempty"` // Login request for auth
+	Name  string            `yaml:"-"`       // Current environment name
+	Vars  map[string]string `yaml:",inline"` // Environment variables
+	Login *LoginConfig      `yaml:"login,omitempty"`
 }
 
 // LoginConfig defines the login request and status codes for retry.

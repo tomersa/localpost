@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	jtdinfer "github.com/bombsimon/jtd-infer-go"
 	"github.com/briandowns/spinner"
 	"io"
 	"mime/multipart"
@@ -14,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/bombsimon/jtd-infer-go"
 
 	"gopkg.in/yaml.v3"
 )
@@ -50,20 +51,21 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 	if err != nil {
 		return Response{}, fmt.Errorf("error loading env: %v", err)
 	}
+	cookies, err := LoadCookies()
+	if err != nil {
+		return Response{}, fmt.Errorf("error loading cookies: %v", err)
+	}
 
-	// Start spinner
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	s.Prefix = fileName + " "
-	s.Start()
+	if showLog {
+		s.Prefix = fileName + " "
+		s.Start()
+	}
 
 	finalURL, err := replacePlaceholders(reqDef.URL, env.Vars)
 	if err != nil {
 		s.Stop()
 		return Response{}, err
-	}
-
-	if !strings.HasPrefix(finalURL, "http://") && !strings.HasPrefix(finalURL, "https://") {
-		return Response{}, fmt.Errorf("invalid URL: %s (must resolve to http:// or https://)", finalURL)
 	}
 
 	for key, value := range reqDef.Headers {
@@ -199,9 +201,9 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 		httpReq.Header.Set("Content-Type", contentType)
 	}
 
-	if len(env.Cookies) > 0 {
+	if len(cookies) > 0 {
 		cookieHeader := ""
-		for name, value := range env.Cookies {
+		for name, value := range cookies {
 			if cookieHeader != "" {
 				cookieHeader += "; "
 			}
@@ -236,19 +238,50 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 		Duration:    duration,
 	}
 
-	// Stop spinner and print final status
-	s.Stop()
-	if showLog || resp.StatusCode >= 300 {
-		fmt.Printf("%s %d\n", fileName, response.StatusCode)
+	// Auto-login if status matches env.Login.TriggeredBy
+	if env.Login != nil {
+		for _, status := range env.Login.TriggeredBy {
+			if response.StatusCode == status {
+				s.Stop()
+				_, err := HandleRequest(env.Login.Request)
+				if err != nil {
+					return Response{}, fmt.Errorf("error executing login request %s: %v", env.Login.Request, err)
+				}
+				return executeHTTPRequest(reqDef, fileName, true)
+			}
+		}
 	}
 
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 && strings.TrimSpace(respBody) != "" {
-		schema := jtdinfer.InferStrings([]string{respBody}, jtdinfer.WithoutHints()).IntoSchema()
-		schemaPath := filepath.Join("lpost/schemas", fileName+".jtd.json")
-		schemaBytes, err := json.MarshalIndent(schema, "", "  ")
-		if err == nil {
-			os.MkdirAll(filepath.Dir(schemaPath), 0755)
-			os.WriteFile(schemaPath, schemaBytes, 0644)
+	// Update runtime cookies
+	if setCookies, ok := resp.Header["Set-Cookie"]; ok && len(setCookies) > 0 {
+		for _, cookie := range setCookies {
+			parts := strings.SplitN(cookie, ";", 2)
+			if len(parts) > 0 {
+				kv := strings.SplitN(parts[0], "=", 2)
+				if len(kv) == 2 {
+					name := strings.TrimSpace(kv[0])
+					value := strings.TrimSpace(kv[1])
+					cookies[name] = value
+				}
+			}
+		}
+		if err := SaveCookies(cookies); err != nil {
+			s.Stop()
+			return Response{}, fmt.Errorf("error saving cookies: %v", err)
+		}
+	}
+
+	// Generate JTD schema if inferSchema is true
+	if strings.TrimSpace(respBody) != "" {
+		var doc interface{}
+		if err := json.Unmarshal([]byte(respBody), &doc); err == nil {
+			schema := jtdinfer.InferStrings([]string{respBody}, jtdinfer.WithoutHints()).IntoSchema()
+			schemaPath := filepath.Join(SchemasDir, fileName+".jtd.json")
+			schemaBytes, err := json.MarshalIndent(schema, "", "  ")
+			if err == nil {
+				os.MkdirAll(filepath.Dir(schemaPath), 0755)
+				os.WriteFile(schemaPath, schemaBytes, 0644)
+			}
 		}
 	}
 
@@ -258,71 +291,14 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 
 // HandleRequest executes an HTTP request and returns a Response struct.
 func HandleRequest(fileName string) (Response, error) {
-	env, err := LoadEnv()
-	if err != nil {
-		return Response{}, err
-	}
-
 	reqDef, err := ReadRequestDefinition(fileName)
 	if err != nil {
 		return Response{}, err
 	}
 
-	// Main request with auto-login
 	resp, err := executeHTTPRequest(reqDef, fileName, false)
 	if err != nil {
 		return Response{}, fmt.Errorf("error executing request: %v", err)
-	}
-
-	// Auto-login if status matches env.Login.TriggeredBy
-	if env.Login != nil {
-		for _, status := range env.Login.TriggeredBy {
-			if resp.StatusCode == status {
-				// Retry the original request
-				return executeHTTPRequest(reqDef, fileName, true)
-			}
-		}
-	}
-
-	// Process set-env-var if present
-	if len(reqDef.SetEnv) > 0 {
-		for varName, source := range reqDef.SetEnv {
-			var value string
-			if source.Header != "" {
-				if val, ok := resp.RespHeaders[source.Header]; ok && len(val) > 0 {
-					value = val[0]
-				}
-			} else if source.Body != "" {
-				var data map[string]interface{}
-				if err := json.Unmarshal([]byte(resp.RespBody), &data); err == nil {
-					if val, ok := data[source.Body]; ok {
-						value = fmt.Sprintf("%v", val)
-					}
-				}
-			}
-			if value != "" {
-				if err := SetEnvVar(varName, value); err != nil {
-					return Response{}, fmt.Errorf("error setting env var %s: %v", varName, err)
-				}
-			}
-		}
-	}
-
-	// Process Set-Cookie headers and save to config.yaml
-	if setCookies, ok := resp.RespHeaders["Set-Cookie"]; ok && len(setCookies) > 0 {
-		for _, cookie := range setCookies {
-			parts := strings.SplitN(cookie, ";", 2)
-			if len(parts) > 0 {
-				kv := strings.SplitN(parts[0], "=", 2)
-				if len(kv) == 2 {
-					name := strings.TrimSpace(kv[0])
-					value := strings.TrimSpace(kv[1])
-					if err := SetCookie(name, value); err != nil {
-						return Response{}, fmt.Errorf("error setting cookie %s: %v", name, err)
-					}
-				}
-			}
-		}
 	}
 
 	return resp, nil

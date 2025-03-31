@@ -15,6 +15,7 @@ const RequestsDir = LocalpostDir + "/requests"
 const SchemasDir = LocalpostDir + "/schemas"
 const ConfigFile = "config.yaml"
 const ConfigFilePath = LocalpostDir + "/" + ConfigFile
+const CookiesFilePath = LocalpostDir + "/" + ".cookies.yaml"
 
 // configFile is an internal struct for parsing config.yaml.
 type configFile struct {
@@ -33,18 +34,41 @@ func CheckRepoContext() error {
 	return nil
 }
 
-// ClearCookies resets the cookies for the current environment in config.yaml.
-func ClearCookies() error {
-	config, err := ReadConfig()
+// LoadCookies reads runtime cookies from .cookies.yaml.
+func LoadCookies() (map[string]string, error) {
+	data, err := os.ReadFile(CookiesFilePath)
 	if err != nil {
-		return fmt.Errorf("error reading config: %v", err)
+		if os.IsNotExist(err) {
+			return make(map[string]string), nil
+		}
+		return nil, fmt.Errorf("error reading %s: %v", CookiesFilePath, err)
+	}
+	var cookies map[string]string
+	if err := yaml.Unmarshal(data, &cookies); err != nil {
+		return nil, fmt.Errorf("error parsing %s: %v", CookiesFilePath, err)
+	}
+	return cookies, nil
+}
+
+// SaveCookies writes runtime cookies to .cookies.yaml.
+func SaveCookies(cookies map[string]string) error {
+	data, err := yaml.Marshal(cookies)
+	if err != nil {
+		return fmt.Errorf("error marshaling cookies: %v", err)
+	}
+	return os.WriteFile(CookiesFilePath, data, 0644)
+}
+
+// ClearCookies removes the .cookies.yaml file.
+func ClearCookies() error {
+	err := os.Remove(CookiesFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 	}
 
-	currentEnv := config.Envs[config.Env]
-	currentEnv.Cookies = make(map[string]string)
-	config.Envs[config.Env] = currentEnv
-
-	return writeConfig(config)
+	return err
 }
 
 // ReadConfig reads and returns the parsed config.yaml with defaults applied if missing.
@@ -55,7 +79,7 @@ func ReadConfig() (*configFile, error) {
 			defaultConfig := &configFile{
 				Env: "dev",
 				Envs: map[string]Env{
-					"dev": {Vars: make(map[string]string), Cookies: make(map[string]string)},
+					"dev": {Vars: make(map[string]string)},
 				},
 			}
 			if err := writeConfig(defaultConfig); err != nil {
@@ -77,13 +101,12 @@ func ReadConfig() (*configFile, error) {
 	}
 	if config.Envs == nil {
 		config.Envs = map[string]Env{
-			"dev": {Vars: make(map[string]string), Cookies: make(map[string]string)},
+			"dev": {Vars: make(map[string]string)},
 		}
 	}
 	if _, ok := config.Envs[config.Env]; !ok {
 		config.Envs[config.Env] = Env{
-			Vars:    make(map[string]string),
-			Cookies: make(map[string]string),
+			Vars: make(map[string]string),
 		}
 	}
 
@@ -133,27 +156,9 @@ func SetEnv(envName string) error {
 	config.Env = envName
 	if _, ok := config.Envs[envName]; !ok {
 		config.Envs[envName] = Env{
-			Vars:    make(map[string]string),
-			Cookies: make(map[string]string),
+			Vars: make(map[string]string),
 		}
 	}
-
-	return writeConfig(config)
-}
-
-// SetCookie updates a cookie in config.yaml for the current environment.
-func SetCookie(name, value string) error {
-	config, err := ReadConfig()
-	if err != nil {
-		return fmt.Errorf("error reading config: %v", err)
-	}
-
-	currentEnv := config.Envs[config.Env]
-	if currentEnv.Cookies == nil {
-		currentEnv.Cookies = make(map[string]string)
-	}
-	currentEnv.Cookies[name] = value
-	config.Envs[config.Env] = currentEnv
 
 	return writeConfig(config)
 }
