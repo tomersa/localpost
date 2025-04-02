@@ -10,20 +10,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const LocalpostDir = "lpost"
-const RequestsDir = LocalpostDir + "/requests"
-const SchemasDir = LocalpostDir + "/schemas"
-const ConfigFile = "config.yaml"
-const ConfigFilePath = LocalpostDir + "/" + ConfigFile
-const CookiesFilePath = LocalpostDir + "/" + ".cookies.yaml"
-
-// configFile is an internal struct for parsing config.yaml.
-type configFile struct {
+// Config is an internal struct for parsing config.yaml.
+type Config struct {
 	Env  string         `yaml:"env"`
 	Envs map[string]Env `yaml:"envs"`
 }
 
-// CheckRepoContext verifies if the current directory contains a valid localpost project.
+// CheckRepoContext verifies if the current directory contains a val
+// id localpost project.
 func CheckRepoContext() error {
 	if _, err := os.Stat(LocalpostDir); os.IsNotExist(err) {
 		return fmt.Errorf("lpost directory not found")
@@ -34,49 +28,12 @@ func CheckRepoContext() error {
 	return nil
 }
 
-// LoadCookies reads runtime cookies from .cookies.yaml.
-func LoadCookies() (map[string]string, error) {
-	data, err := os.ReadFile(CookiesFilePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return make(map[string]string), nil
-		}
-		return nil, fmt.Errorf("error reading %s: %v", CookiesFilePath, err)
-	}
-	var cookies map[string]string
-	if err := yaml.Unmarshal(data, &cookies); err != nil {
-		return nil, fmt.Errorf("error parsing %s: %v", CookiesFilePath, err)
-	}
-	return cookies, nil
-}
-
-// SaveCookies writes runtime cookies to .cookies.yaml.
-func SaveCookies(cookies map[string]string) error {
-	data, err := yaml.Marshal(cookies)
-	if err != nil {
-		return fmt.Errorf("error marshaling cookies: %v", err)
-	}
-	return os.WriteFile(CookiesFilePath, data, 0644)
-}
-
-// ClearCookies removes the .cookies.yaml file.
-func ClearCookies() error {
-	err := os.Remove(CookiesFilePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-	}
-
-	return err
-}
-
 // ReadConfig reads and returns the parsed config.yaml with defaults applied if missing.
-func ReadConfig() (*configFile, error) {
+func ReadConfig() (*Config, error) {
 	data, err := os.ReadFile(ConfigFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			defaultConfig := &configFile{
+			defaultConfig := &Config{
 				Env: "dev",
 				Envs: map[string]Env{
 					"dev": {Vars: make(map[string]string)},
@@ -90,7 +47,7 @@ func ReadConfig() (*configFile, error) {
 		return nil, fmt.Errorf("error reading %s: %v", ConfigFilePath, err)
 	}
 
-	var config configFile
+	var config Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("error parsing %s: %v", ConfigFilePath, err)
 	}
@@ -164,7 +121,7 @@ func SetEnv(envName string) error {
 }
 
 // writeConfig writes the config struct to config.yaml.
-func writeConfig(config *configFile) error {
+func writeConfig(config *Config) error {
 	out, err := yaml.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("error marshaling config: %v", err)
@@ -177,9 +134,16 @@ func writeConfig(config *configFile) error {
 
 // replacePlaceholders replaces placeholders like {VAR} in the input string or URL query params with values from vars.
 func replacePlaceholders(input string, vars map[string]string) (string, error) {
-	// First, try parsing as a URL to handle query params
-	u, err := url.Parse(input)
-	if err == nil && u.RawQuery != "" {
+	// Replace placeholders in the entire string first
+	replaced := replaceString(input, vars)
+
+	// Parse as URL to handle query params
+	u, err := url.Parse(replaced)
+	if err != nil {
+		return replaced, nil // If not a valid URL, return as-is
+	}
+
+	if u.RawQuery != "" {
 		// Handle URL query params
 		q := u.Query()
 		for key, values := range q {
@@ -191,11 +155,9 @@ func replacePlaceholders(input string, vars map[string]string) (string, error) {
 			}
 		}
 		u.RawQuery = q.Encode()
-		return u.String(), nil
 	}
 
-	// If not a URL or no query params, treat as a plain string
-	return replaceString(input, vars), nil
+	return u.String(), nil
 }
 
 // replaceString replaces {VAR} placeholders in a string with values from vars.

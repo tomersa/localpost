@@ -45,8 +45,58 @@ func ReadRequestDefinition(fileName string) (RequestDefinition, error) {
 	return req, nil
 }
 
+// processResponse handles post-request actions like set-env-var.
+func processResponse(reqDef RequestDefinition, resp Response) error {
+	if len(reqDef.SetEnv) > 0 {
+		for varName, source := range reqDef.SetEnv {
+			var value string
+			if source.Header != "" {
+				if val, ok := resp.RespHeaders[source.Header]; ok && len(val) > 0 {
+					value = val[0]
+				}
+			} else if source.Body != "" {
+				var data map[string]interface{}
+				if err := json.Unmarshal([]byte(resp.RespBody), &data); err == nil {
+					if val, ok := data[source.Body]; ok {
+						value = fmt.Sprintf("%v", val)
+					}
+				}
+			}
+			if value != "" {
+				if err := SetEnvVar(varName, value); err != nil {
+					return fmt.Errorf("error setting env var %s: %v", varName, err)
+				}
+			}
+		}
+	}
+
+	// Update runtime cookies
+	if setCookies, ok := resp.RespHeaders["Set-Cookie"]; ok && len(setCookies) > 0 {
+		cookies, err := LoadCookies()
+		if err != nil {
+			return fmt.Errorf("error loading cookies: %v", err)
+		}
+		for _, cookie := range setCookies {
+			parts := strings.SplitN(cookie, ";", 2)
+			if len(parts) > 0 {
+				kv := strings.SplitN(parts[0], "=", 2)
+				if len(kv) == 2 {
+					name := strings.TrimSpace(kv[0])
+					value := strings.TrimSpace(kv[1])
+					cookies[name] = value
+				}
+			}
+		}
+		if err := SaveCookies(cookies); err != nil {
+			return fmt.Errorf("error saving cookies: %v", err)
+		}
+	}
+
+	return nil
+}
+
 // executeHTTPRequest performs the actual HTTP request and returns the response.
-func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool) (Response, error) {
+func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, error) {
 	env, err := LoadEnv()
 	if err != nil {
 		return Response{}, fmt.Errorf("error loading env: %v", err)
@@ -57,15 +107,19 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 	}
 
 	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	if showLog {
-		s.Prefix = fileName + " "
-		s.Start()
-	}
+	s.Prefix = fileName + " "
+	s.Start()
 
+	// Replace placeholders in URL (including query params)
 	finalURL, err := replacePlaceholders(reqDef.URL, env.Vars)
 	if err != nil {
 		s.Stop()
-		return Response{}, err
+		return Response{}, fmt.Errorf("error replacing placeholders in URL: %v", err)
+	}
+
+	if !strings.HasPrefix(finalURL, "http://") && !strings.HasPrefix(finalURL, "https://") {
+		s.Stop()
+		return Response{}, fmt.Errorf("invalid URL after placeholder replacement: %s", finalURL)
 	}
 
 	for key, value := range reqDef.Headers {
@@ -76,43 +130,6 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 		}
 	}
 
-	for key, value := range reqDef.Body.Json {
-		if strVal, ok := value.(string); ok {
-			reqDef.Body.Json[key], err = replacePlaceholders(strVal, env.Vars)
-			if err != nil {
-				s.Stop()
-				return Response{}, fmt.Errorf("error replacing placeholders in JSON body %s: %v", key, err)
-			}
-		}
-	}
-	for key, value := range reqDef.Body.FormUrlEncoded {
-		reqDef.Body.FormUrlEncoded[key], err = replacePlaceholders(value, env.Vars)
-		if err != nil {
-			s.Stop()
-			return Response{}, fmt.Errorf("error replacing placeholders in form-urlencoded %s: %v", key, err)
-		}
-	}
-	for key, value := range reqDef.Body.Form.Fields {
-		reqDef.Body.Form.Fields[key], err = replacePlaceholders(value, env.Vars)
-		if err != nil {
-			s.Stop()
-			return Response{}, fmt.Errorf("error replacing placeholders in form fields %s: %v", key, err)
-		}
-	}
-	for key, filePath := range reqDef.Body.Form.Files {
-		reqDef.Body.Form.Files[key], err = replacePlaceholders(filePath, env.Vars)
-		if err != nil {
-			s.Stop()
-			return Response{}, fmt.Errorf("error replacing placeholders in form files %s: %v", key, err)
-		}
-	}
-
-	reqDef.Body.Text, err = replacePlaceholders(reqDef.Body.Text, env.Vars)
-	if err != nil {
-		s.Stop()
-		return Response{}, fmt.Errorf("error replacing placeholders in text body: %v", err)
-	}
-
 	var body io.Reader
 	contentType := reqDef.Headers["Content-Type"]
 	var reqBody string
@@ -120,6 +137,15 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 	switch contentType {
 	case "application/json", "":
 		if len(reqDef.Body.Json) > 0 {
+			for key, value := range reqDef.Body.Json {
+				if strVal, ok := value.(string); ok {
+					reqDef.Body.Json[key], err = replacePlaceholders(strVal, env.Vars)
+					if err != nil {
+						s.Stop()
+						return Response{}, fmt.Errorf("error replacing placeholders in JSON body %s: %v", key, err)
+					}
+				}
+			}
 			bodyBytes, err := json.Marshal(reqDef.Body.Json)
 			if err != nil {
 				s.Stop()
@@ -247,32 +273,13 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, showLog bool)
 				if err != nil {
 					return Response{}, fmt.Errorf("error executing login request %s: %v", env.Login.Request, err)
 				}
-				return executeHTTPRequest(reqDef, fileName, true)
+				return executeHTTPRequest(reqDef, fileName)
 			}
-		}
-	}
-
-	// Update runtime cookies
-	if setCookies, ok := resp.Header["Set-Cookie"]; ok && len(setCookies) > 0 {
-		for _, cookie := range setCookies {
-			parts := strings.SplitN(cookie, ";", 2)
-			if len(parts) > 0 {
-				kv := strings.SplitN(parts[0], "=", 2)
-				if len(kv) == 2 {
-					name := strings.TrimSpace(kv[0])
-					value := strings.TrimSpace(kv[1])
-					cookies[name] = value
-				}
-			}
-		}
-		if err := SaveCookies(cookies); err != nil {
-			s.Stop()
-			return Response{}, fmt.Errorf("error saving cookies: %v", err)
 		}
 	}
 
 	// Generate JTD schema if inferSchema is true
-	if strings.TrimSpace(respBody) != "" {
+	if response.StatusCode == 200 && strings.TrimSpace(respBody) != "" {
 		var doc interface{}
 		if err := json.Unmarshal([]byte(respBody), &doc); err == nil {
 			schema := jtdinfer.InferStrings([]string{respBody}, jtdinfer.WithoutHints()).IntoSchema()
@@ -296,9 +303,13 @@ func HandleRequest(fileName string) (Response, error) {
 		return Response{}, err
 	}
 
-	resp, err := executeHTTPRequest(reqDef, fileName, false)
+	resp, err := executeHTTPRequest(reqDef, fileName)
 	if err != nil {
 		return Response{}, fmt.Errorf("error executing request: %v", err)
+	}
+
+	if err := processResponse(reqDef, resp); err != nil {
+		return Response{}, err
 	}
 
 	return resp, nil
