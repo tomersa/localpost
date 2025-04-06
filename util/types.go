@@ -1,7 +1,5 @@
 package util
 
-import "time"
-
 // Response holds the results of an HTTP request execution.
 type Response struct {
 	ReqURL      string              // Final URL after env var substitution
@@ -10,7 +8,6 @@ type Response struct {
 	StatusCode  int                 // HTTP status (e.g., "200 OK")
 	RespHeaders map[string][]string // Response headers received
 	RespBody    string              // Response body received
-	Duration    time.Duration       // Time taken for the request
 }
 
 // Ephemeral holds runtime cookies and variables.
@@ -21,9 +18,10 @@ type Ephemeral struct {
 
 // Env represents an environment with its persistent variables and login config.
 type Env struct {
-	Name  string            `yaml:"-"`       // Current environment name
-	Vars  map[string]string `yaml:",inline"` // Persistent environment variables
-	Login *LoginConfig      `yaml:"login,omitempty"`
+	Name    string            `yaml:"-"`       // Current environment name
+	Vars    map[string]string `yaml:",inline"` // Persistent environment variables
+	Login   *LoginConfig      `yaml:"login,omitempty"`
+	Timeout int               `yaml:"timeout,omitempty"`
 }
 
 // LoginConfig defines the login request and status codes for retry.
