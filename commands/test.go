@@ -3,6 +3,8 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/jedib0t/go-pretty/v6/text"
+	jtd "github.com/jsontypedef/json-typedef-go"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,16 +12,9 @@ import (
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
-	"github.com/jsontypedef/json-typedef-go"
 	"github.com/moshe5745/localpost/util"
 	"github.com/spf13/cobra"
 )
-
-func removeExtension(filename string) string {
-	base := filepath.Base(filename)  // Gets the filename without path
-	ext := filepath.Ext(base)        // Gets the extension (e.g., ".yaml")
-	return base[:len(base)-len(ext)] // Returns filename without extension
-}
 
 func TestCmd() *cobra.Command {
 	return &cobra.Command{
@@ -57,14 +52,15 @@ func TestCmd() *cobra.Command {
 			pw := progress.NewWriter()
 			pw.SetAutoStop(false)
 			pw.SetTrackerLength(25)
-			pw.SetMessageWidth(24)
+			pw.SetMessageWidth(40)
 			pw.SetStyle(progress.StyleDefault)
 			pw.SetUpdateFrequency(time.Millisecond * 100)
+			pw.SetTrackerPosition(progress.PositionRight)
 			pw.Style().Colors = progress.StyleColorsExample
 			pw.Style().Visibility.Percentage = false
 			pw.Style().Visibility.Value = false
 			pw.Style().Visibility.TrackerOverall = false
-			pw.Style().Visibility.Time = false
+			pw.Style().Visibility.Time = true
 
 			go pw.Render()
 
@@ -82,10 +78,9 @@ func TestCmd() *cobra.Command {
 					}
 
 					wg.Add(1)
-					start := time.Now()
 					tracker := &progress.Tracker{
 						Message: fmt.Sprintf("%s idle", fileName),
-						Total:   100,
+						Total:   0,
 					}
 					pw.AppendTracker(tracker)
 					trackers[fileName] = tracker
@@ -93,28 +88,13 @@ func TestCmd() *cobra.Command {
 					go func(fn string, t *progress.Tracker) {
 						defer wg.Done()
 
-						// Update idle message
-						ticker := time.Tick(time.Millisecond * 100)
-						done := make(chan struct{})
-						go func() {
-							for {
-								select {
-								case <-ticker:
-									duration := time.Since(start)
-									t.UpdateMessage(fmt.Sprintf("%s idle (%d ms)", fn, duration.Milliseconds()))
-								case <-done:
-									return
-								}
-							}
-						}()
-
 						// Execute request
 						resp, err := util.HandleRequest(fn, false)
-						close(done)
 						if err != nil {
 							mu.Lock()
 							failed = true
 							mu.Unlock()
+							t.UpdateMessage(fmt.Sprintf("%s failed: %v", fn, err))
 							t.MarkAsErrored()
 							return
 						}
@@ -126,6 +106,7 @@ func TestCmd() *cobra.Command {
 							mu.Lock()
 							failed = true
 							mu.Unlock()
+							t.UpdateMessage(fmt.Sprintf("%s ✗ (schema not found)", fn))
 							t.MarkAsErrored()
 							return
 						}
@@ -135,6 +116,7 @@ func TestCmd() *cobra.Command {
 							mu.Lock()
 							failed = true
 							mu.Unlock()
+							t.UpdateMessage(fmt.Sprintf("%s ✗ (invalid schema)", fn))
 							t.MarkAsErrored()
 							return
 						}
@@ -144,6 +126,7 @@ func TestCmd() *cobra.Command {
 							mu.Lock()
 							failed = true
 							mu.Unlock()
+							t.UpdateMessage(fmt.Sprintf("%s ✗ (invalid response)", fn))
 							t.MarkAsErrored()
 							return
 						}
@@ -151,12 +134,25 @@ func TestCmd() *cobra.Command {
 							mu.Lock()
 							failed = true
 							mu.Unlock()
+							t.UpdateMessage(fmt.Sprintf("%s %d ✗", fn, resp.StatusCode))
 							t.MarkAsErrored()
 							return
 						}
 
-						// Success
-						t.UpdateMessage(fmt.Sprintf("%s ✓", fn))
+						// Success with status code
+						var statusColor text.Color
+						switch {
+						case resp.StatusCode >= 200 && resp.StatusCode < 300:
+							statusColor = text.FgGreen
+						case resp.StatusCode >= 400 && resp.StatusCode < 500:
+							statusColor = text.FgYellow
+						case resp.StatusCode >= 500:
+							statusColor = text.FgRed
+						default:
+							statusColor = text.FgWhite
+						}
+						t.Total = 100 // Switch to determinate progress
+						t.UpdateMessage(statusColor.Sprintf("%s %d ✓", fn, resp.StatusCode))
 						t.MarkAsDone()
 					}(fileName, tracker)
 				}
@@ -169,7 +165,6 @@ func TestCmd() *cobra.Command {
 				if pw.LengthActive() == 0 {
 					pw.Stop()
 				}
-				time.Sleep(time.Millisecond * 100)
 			}
 
 			if failed {

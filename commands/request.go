@@ -25,7 +25,6 @@ func formatJSON(body string, contentType string) string {
 	if err != nil {
 		return body // Fallback to raw if unmarshalling fails
 	}
-	// Split and re-indent lines to align with "Body:"
 	lines := strings.Split(prettyJSON.String(), "\n")
 	for i, line := range lines {
 		lines[i] = "    " + line // Add 4-space prefix to align with "Body:"
@@ -84,43 +83,28 @@ Use --verbose to show detailed request and response information.`,
 			pw := progress.NewWriter()
 			pw.SetAutoStop(false)
 			pw.SetTrackerLength(25)
-			pw.SetMessageWidth(24)
+			pw.SetMessageWidth(40)
 			pw.SetStyle(progress.StyleDefault)
 			pw.SetUpdateFrequency(time.Millisecond * 100)
+			pw.SetTrackerPosition(progress.PositionRight)
 			pw.Style().Colors = progress.StyleColorsExample
 			pw.Style().Visibility.Percentage = false
 			pw.Style().Visibility.Value = false
 			pw.Style().Visibility.TrackerOverall = false
-			pw.Style().Visibility.Time = false
+			pw.Style().Visibility.Time = true
 
-			go pw.Render()
-
-			// Create tracker
-			start := time.Now()
+			// Create tracker with indeterminate progress (Total: 0)
 			tracker := &progress.Tracker{
 				Message: fmt.Sprintf("%s idle", fileName),
-				Total:   100,
+				Total:   0, // Indeterminate—moving # animation
 			}
 			pw.AppendTracker(tracker)
 
-			// Update idle message periodically
-			done := make(chan struct{})
-			go func() {
-				ticker := time.Tick(time.Millisecond * 100)
-				for {
-					select {
-					case <-ticker:
-						duration := time.Since(start)
-						tracker.UpdateMessage(fmt.Sprintf("%s idle (%d ms)", fileName, duration.Milliseconds()))
-					case <-done:
-						return
-					}
-				}
-			}()
+			// Render progress in a goroutine
+			go pw.Render()
 
 			// Execute request
 			resp, err := util.HandleRequest(fileName, inferSchema)
-			close(done)
 			if err != nil {
 				pw.Stop()
 				tracker.MarkAsErrored()
@@ -140,6 +124,8 @@ Use --verbose to show detailed request and response information.`,
 			default:
 				statusColor = text.FgWhite
 			}
+
+			tracker.Total = 100
 			tracker.UpdateMessage(statusColor.Sprintf("%s %d", fileName, resp.StatusCode))
 			tracker.MarkAsDone()
 
@@ -148,7 +134,7 @@ Use --verbose to show detailed request and response information.`,
 				if pw.LengthActive() == 0 {
 					pw.Stop()
 				}
-				time.Sleep(time.Millisecond * 100)
+				time.Sleep(time.Millisecond * 10)
 			}
 
 			// Prepare bodies with JSON formatting
