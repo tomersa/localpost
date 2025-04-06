@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/briandowns/spinner"
+	jtdinfer "github.com/bombsimon/jtd-infer-go"
+	"gopkg.in/yaml.v3"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -12,11 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
-
-	"github.com/bombsimon/jtd-infer-go"
-
-	"gopkg.in/yaml.v3"
 )
 
 // ReadRequestDefinition reads and parses a request YAML file into a RequestDefinition struct.
@@ -70,12 +66,8 @@ func processResponse(reqDef RequestDefinition, resp Response) error {
 		}
 	}
 
-	// Update runtime cookies
+	// Update runtime cookies using SetCookie from ephemeral.go
 	if setCookies, ok := resp.RespHeaders["Set-Cookie"]; ok && len(setCookies) > 0 {
-		cookies, err := LoadCookies()
-		if err != nil {
-			return fmt.Errorf("error loading cookies: %v", err)
-		}
 		for _, cookie := range setCookies {
 			parts := strings.SplitN(cookie, ";", 2)
 			if len(parts) > 0 {
@@ -83,12 +75,11 @@ func processResponse(reqDef RequestDefinition, resp Response) error {
 				if len(kv) == 2 {
 					name := strings.TrimSpace(kv[0])
 					value := strings.TrimSpace(kv[1])
-					cookies[name] = value
+					if err := SetCookie(name, value); err != nil {
+						return fmt.Errorf("error setting cookie %s: %v", name, err)
+					}
 				}
 			}
-		}
-		if err := SaveCookies(cookies); err != nil {
-			return fmt.Errorf("error saving cookies: %v", err)
 		}
 	}
 
@@ -96,7 +87,7 @@ func processResponse(reqDef RequestDefinition, resp Response) error {
 }
 
 // executeHTTPRequest performs the actual HTTP request and returns the response.
-func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, error) {
+func executeHTTPRequest(reqDef RequestDefinition, fileName string, inferSchema bool) (Response, error) {
 	env, err := LoadEnv()
 	if err != nil {
 		return Response{}, fmt.Errorf("error loading env: %v", err)
@@ -106,26 +97,18 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 		return Response{}, fmt.Errorf("error loading cookies: %v", err)
 	}
 
-	s := spinner.New(spinner.CharSets[9], 100*time.Millisecond)
-	s.Prefix = fileName + " "
-	s.Start()
-
-	// Replace placeholders in URL (including query params)
 	finalURL, err := replacePlaceholders(reqDef.URL, env.Vars)
 	if err != nil {
-		s.Stop()
 		return Response{}, fmt.Errorf("error replacing placeholders in URL: %v", err)
 	}
 
 	if !strings.HasPrefix(finalURL, "http://") && !strings.HasPrefix(finalURL, "https://") {
-		s.Stop()
 		return Response{}, fmt.Errorf("invalid URL after placeholder replacement: %s", finalURL)
 	}
 
 	for key, value := range reqDef.Headers {
 		reqDef.Headers[key], err = replacePlaceholders(value, env.Vars)
 		if err != nil {
-			s.Stop()
 			return Response{}, fmt.Errorf("error replacing placeholders in header %s: %v", key, err)
 		}
 	}
@@ -141,14 +124,12 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 				if strVal, ok := value.(string); ok {
 					reqDef.Body.Json[key], err = replacePlaceholders(strVal, env.Vars)
 					if err != nil {
-						s.Stop()
 						return Response{}, fmt.Errorf("error replacing placeholders in JSON body %s: %v", key, err)
 					}
 				}
 			}
 			bodyBytes, err := json.Marshal(reqDef.Body.Json)
 			if err != nil {
-				s.Stop()
 				return Response{}, fmt.Errorf("error marshaling JSON body: %v", err)
 			}
 			reqBody = string(bodyBytes)
@@ -177,24 +158,20 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 			for k, filePath := range reqDef.Body.Form.Files {
 				file, err := os.Open(filePath)
 				if err != nil {
-					s.Stop()
 					return Response{}, fmt.Errorf("error opening file %s: %v", filePath, err)
 				}
 				defer file.Close()
 				part, err := writer.CreateFormFile(k, filepath.Base(filePath))
 				if err != nil {
-					s.Stop()
 					return Response{}, fmt.Errorf("error creating form file %s: %v", k, err)
 				}
 				_, err = io.Copy(part, file)
 				if err != nil {
-					s.Stop()
 					return Response{}, fmt.Errorf("error writing file %s to form: %v", k, err)
 				}
 			}
 			err := writer.Close()
 			if err != nil {
-				s.Stop()
 				return Response{}, fmt.Errorf("error closing form writer: %v", err)
 			}
 			reqBody = bodyBuffer.String()
@@ -208,7 +185,6 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 		}
 	default:
 		if len(reqDef.Body.Json) > 0 || len(reqDef.Body.FormUrlEncoded) > 0 || len(reqDef.Body.Form.Fields) > 0 || len(reqDef.Body.Form.Files) > 0 || reqDef.Body.Text != "" {
-			s.Stop()
 			return Response{}, fmt.Errorf("unsupported or missing Content-Type for body: %s", contentType)
 		}
 	}
@@ -216,7 +192,6 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 	client := &http.Client{}
 	httpReq, err := http.NewRequest(reqDef.Method, finalURL, body)
 	if err != nil {
-		s.Stop()
 		return Response{}, fmt.Errorf("error creating request: %v", err)
 	}
 
@@ -238,18 +213,14 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 		httpReq.Header.Set("Cookie", cookieHeader)
 	}
 
-	start := time.Now()
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		s.Stop()
 		return Response{}, fmt.Errorf("error executing request: %v", err)
 	}
 	defer resp.Body.Close()
 
-	duration := time.Since(start)
 	respBodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		s.Stop()
 		return Response{}, fmt.Errorf("error reading response: %v", err)
 	}
 	respBody := string(respBodyBytes)
@@ -261,19 +232,17 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 		StatusCode:  resp.StatusCode,
 		RespHeaders: resp.Header,
 		RespBody:    respBody,
-		Duration:    duration,
 	}
 
 	// Auto-login if status matches env.Login.TriggeredBy
 	if env.Login != nil {
 		for _, status := range env.Login.TriggeredBy {
 			if response.StatusCode == status {
-				s.Stop()
-				_, err := HandleRequest(env.Login.Request)
+				_, err := HandleRequest(env.Login.Request, false)
 				if err != nil {
 					return Response{}, fmt.Errorf("error executing login request %s: %v", env.Login.Request, err)
 				}
-				return executeHTTPRequest(reqDef, fileName)
+				return executeHTTPRequest(reqDef, fileName, inferSchema)
 			}
 		}
 	}
@@ -292,18 +261,17 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string) (Response, er
 		}
 	}
 
-	s.Stop()
 	return response, nil
 }
 
 // HandleRequest executes an HTTP request and returns a Response struct.
-func HandleRequest(fileName string) (Response, error) {
+func HandleRequest(fileName string, inferSchema bool) (Response, error) {
 	reqDef, err := ReadRequestDefinition(fileName)
 	if err != nil {
 		return Response{}, err
 	}
 
-	resp, err := executeHTTPRequest(reqDef, fileName)
+	resp, err := executeHTTPRequest(reqDef, fileName, inferSchema)
 	if err != nil {
 		return Response{}, fmt.Errorf("error executing request: %v", err)
 	}

@@ -3,7 +3,6 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	jtd "github.com/jsontypedef/json-typedef-go"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
+	"github.com/jsontypedef/json-typedef-go"
 	"github.com/moshe5745/localpost/util"
 	"github.com/spf13/cobra"
 )
@@ -32,18 +32,25 @@ func TestCmd() *cobra.Command {
 				os.Exit(1)
 			}
 
-			// Execute login request
+			// Execute login request with response output
 			env, err := util.LoadEnv()
 			if err != nil {
 				fmt.Printf("Error loading env: %v\n", err)
 				os.Exit(1)
 			}
 			if env.Login != nil && env.Login.Request != "" {
-				_, err := util.HandleRequest(env.Login.Request)
+				_, err := util.HandleRequest(env.Login.Request, false)
 				if err != nil {
 					fmt.Printf("Error executing login request %s: %v\n", env.Login.Request, err)
 					os.Exit(1)
 				}
+			}
+
+			// Collect requests
+			files, err := os.ReadDir(util.RequestsDir)
+			if err != nil {
+				fmt.Printf("Error reading requests dir: %v\n", err)
+				os.Exit(1)
 			}
 
 			// Setup progress writer
@@ -57,38 +64,53 @@ func TestCmd() *cobra.Command {
 			pw.Style().Visibility.Percentage = false
 			pw.Style().Visibility.Value = false
 			pw.Style().Visibility.TrackerOverall = false
+			pw.Style().Visibility.Time = false
 
 			go pw.Render()
 
-			// Track failures
+			// Track failures and requests
 			var wg sync.WaitGroup
 			failed := false
 			mu := sync.Mutex{}
-
-			files, err := os.ReadDir(util.RequestsDir)
-			if err != nil {
-				fmt.Printf("Error reading requests dir: %v\n", err)
-				os.Exit(1)
-			}
+			trackers := make(map[string]*progress.Tracker)
 
 			for _, file := range files {
-				fileName := removeExtension(file.Name())
 				if !file.IsDir() && strings.HasSuffix(file.Name(), ".yaml") {
+					fileName := strings.TrimSuffix(file.Name(), ".yaml")
 					if env.Login != nil && fileName == strings.TrimSuffix(env.Login.Request, ".yaml") {
-						continue
+						continue // Skip login request
 					}
 
 					wg.Add(1)
+					start := time.Now()
 					tracker := &progress.Tracker{
-						Message: fileName,
+						Message: fmt.Sprintf("%s idle", fileName),
 						Total:   100,
 					}
 					pw.AppendTracker(tracker)
+					trackers[fileName] = tracker
 
-					go func(t *progress.Tracker, fn string) {
+					go func(fn string, t *progress.Tracker) {
 						defer wg.Done()
 
-						resp, err := util.HandleRequest(fn)
+						// Update idle message
+						ticker := time.Tick(time.Millisecond * 100)
+						done := make(chan struct{})
+						go func() {
+							for {
+								select {
+								case <-ticker:
+									duration := time.Since(start)
+									t.UpdateMessage(fmt.Sprintf("%s idle (%d ms)", fn, duration.Milliseconds()))
+								case <-done:
+									return
+								}
+							}
+						}()
+
+						// Execute request
+						resp, err := util.HandleRequest(fn, false)
+						close(done)
 						if err != nil {
 							mu.Lock()
 							failed = true
@@ -97,7 +119,8 @@ func TestCmd() *cobra.Command {
 							return
 						}
 
-						schemaPath := filepath.Join(util.SchemasDir, fn+".jtd.json")
+						// Validate schema
+						schemaPath := filepath.Join("lpost/schemas", fn+".jtd.json")
 						schemaData, err := os.ReadFile(schemaPath)
 						if err != nil {
 							mu.Lock()
@@ -132,13 +155,16 @@ func TestCmd() *cobra.Command {
 							return
 						}
 
+						// Success
+						t.UpdateMessage(fmt.Sprintf("%s ✓", fn))
 						t.MarkAsDone()
-					}(tracker, fileName)
+					}(fileName, tracker)
 				}
 			}
 
 			wg.Wait()
 
+			// Wait for progress to finish rendering
 			for pw.IsRenderInProgress() {
 				if pw.LengthActive() == 0 {
 					pw.Stop()
