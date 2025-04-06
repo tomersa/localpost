@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // ReadRequestDefinition reads and parses a request YAML file into a RequestDefinition struct.
@@ -87,7 +88,7 @@ func processResponse(reqDef RequestDefinition, resp Response) error {
 }
 
 // executeHTTPRequest performs the actual HTTP request and returns the response.
-func executeHTTPRequest(reqDef RequestDefinition, fileName string, inferSchema bool) (Response, error) {
+func executeHTTPRequest(reqDef RequestDefinition, fileName string, inferSchema bool, isRetry bool) (Response, error) {
 	env, err := LoadEnv()
 	if err != nil {
 		return Response{}, fmt.Errorf("error loading env: %v", err)
@@ -189,7 +190,10 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, inferSchema b
 		}
 	}
 
-	client := &http.Client{}
+	// Create HTTP client with timeout from config
+	client := &http.Client{
+		Timeout: time.Duration(env.Timeout) * time.Second,
+	}
 	httpReq, err := http.NewRequest(reqDef.Method, finalURL, body)
 	if err != nil {
 		return Response{}, fmt.Errorf("error creating request: %v", err)
@@ -234,21 +238,21 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, inferSchema b
 		RespBody:    respBody,
 	}
 
-	// Auto-login if status matches env.Login.TriggeredBy
-	if env.Login != nil {
+	if env.Login != nil && !isRetry {
 		for _, status := range env.Login.TriggeredBy {
 			if response.StatusCode == status {
 				_, err := HandleRequest(env.Login.Request, false)
 				if err != nil {
 					return Response{}, fmt.Errorf("error executing login request %s: %v", env.Login.Request, err)
 				}
-				return executeHTTPRequest(reqDef, fileName, inferSchema)
+
+				return executeHTTPRequest(reqDef, fileName, inferSchema, true)
 			}
 		}
 	}
 
 	// Generate JTD schema if inferSchema is true
-	if response.StatusCode == 200 && strings.TrimSpace(respBody) != "" {
+	if inferSchema && response.StatusCode == 200 && strings.TrimSpace(respBody) != "" {
 		var doc interface{}
 		if err := json.Unmarshal([]byte(respBody), &doc); err == nil {
 			schema := jtdinfer.InferStrings([]string{respBody}, jtdinfer.WithoutHints()).IntoSchema()
@@ -271,7 +275,7 @@ func HandleRequest(fileName string, inferSchema bool) (Response, error) {
 		return Response{}, err
 	}
 
-	resp, err := executeHTTPRequest(reqDef, fileName, inferSchema)
+	resp, err := executeHTTPRequest(reqDef, fileName, inferSchema, false)
 	if err != nil {
 		return Response{}, fmt.Errorf("error executing request: %v", err)
 	}

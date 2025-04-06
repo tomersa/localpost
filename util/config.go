@@ -30,15 +30,20 @@ func CheckRepoContext() error {
 
 // ReadConfig reads and returns the parsed config.yaml with defaults applied if missing.
 func ReadConfig() (*Config, error) {
+	defaultEnv := map[string]Env{
+		"dev": {
+			Vars:    make(map[string]string),
+			Timeout: 10, // Default timeout: 10 seconds
+		},
+	}
+	defaultConfig := &Config{
+		Env:  "dev",
+		Envs: defaultEnv,
+	}
+
 	data, err := os.ReadFile(ConfigFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			defaultConfig := &Config{
-				Env: "dev",
-				Envs: map[string]Env{
-					"dev": {Vars: make(map[string]string)},
-				},
-			}
 			if err := writeConfig(defaultConfig); err != nil {
 				return nil, fmt.Errorf("error creating default %s: %v", ConfigFilePath, err)
 			}
@@ -57,13 +62,20 @@ func ReadConfig() (*Config, error) {
 		config.Env = "dev"
 	}
 	if config.Envs == nil {
-		config.Envs = map[string]Env{
-			"dev": {Vars: make(map[string]string)},
-		}
+		config.Envs = defaultEnv
 	}
-	if _, ok := config.Envs[config.Env]; !ok {
+	if currentEnv, ok := config.Envs[config.Env]; !ok {
+		// If env doesn't exist, use default with empty vars
 		config.Envs[config.Env] = Env{
-			Vars: make(map[string]string),
+			Vars:    make(map[string]string),
+			Timeout: defaultEnv["dev"].Timeout,
+		}
+	} else if currentEnv.Timeout == 0 {
+		// If env exists but timeout is unset, apply default
+		config.Envs[config.Env] = Env{
+			Vars:    currentEnv.Vars,
+			Login:   currentEnv.Login,
+			Timeout: defaultEnv["dev"].Timeout,
 		}
 	}
 
