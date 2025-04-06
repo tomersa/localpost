@@ -187,7 +187,7 @@ Use --verbose to show detailed request and response information.`,
 		ValidArgsFunction: requestCompletionFunc,
 	}
 
-	cmd.Flags().BoolVar(&inferSchema, "infer-schema", false, "Generate a JTD schema from the response")
+	cmd.Flags().BoolVar(&inferSchema, "infer-schema", true, "Generate a JTD schema from the response")
 	cmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Show detailed request and response information")
 
 	return cmd

@@ -252,7 +252,7 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, inferSchema b
 	}
 
 	// Generate JTD schema if inferSchema is true
-	if inferSchema && response.StatusCode == 200 && strings.TrimSpace(respBody) != "" {
+	if inferSchema && response.StatusCode >= 200 && response.StatusCode < 300 && strings.TrimSpace(respBody) != "" {
 		var doc interface{}
 		if err := json.Unmarshal([]byte(respBody), &doc); err == nil {
 			schema := jtdinfer.InferStrings([]string{respBody}, jtdinfer.WithoutHints()).IntoSchema()
