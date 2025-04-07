@@ -96,6 +96,7 @@ func TestCmd() *cobra.Command {
 							mu.Unlock()
 							t.UpdateMessage(fmt.Sprintf("%s failed: %v", fn, err))
 							t.MarkAsErrored()
+							pw.Log(fmt.Sprintf("Validation failed for %s: %v", fn, err))
 							return
 						}
 
@@ -108,6 +109,7 @@ func TestCmd() *cobra.Command {
 							mu.Unlock()
 							t.UpdateMessage(fmt.Sprintf("%s ✗ (schema not found)", fn))
 							t.MarkAsErrored()
+							pw.Log(fmt.Sprintf("Validation failed for %s: schema file not found at %s", fn, schemaPath))
 							return
 						}
 
@@ -118,6 +120,7 @@ func TestCmd() *cobra.Command {
 							mu.Unlock()
 							t.UpdateMessage(fmt.Sprintf("%s ✗ (invalid schema)", fn))
 							t.MarkAsErrored()
+							pw.Log(fmt.Sprintf("Validation failed for %s: invalid schema format", fn))
 							return
 						}
 
@@ -126,17 +129,31 @@ func TestCmd() *cobra.Command {
 							mu.Lock()
 							failed = true
 							mu.Unlock()
-							t.UpdateMessage(fmt.Sprintf("%s ✗ (invalid response)", fn))
+							t.UpdateMessage(fmt.Sprintf("%s %d ✗", fn, resp.StatusCode))
 							t.MarkAsErrored()
+							pw.Log(fmt.Sprintf("Validation failed for %s: invalid response body", fn))
 							return
 						}
 						if validateErrors, err := jtd.Validate(schema, doc); len(validateErrors) != 0 || err != nil {
-							fmt.Printf("%#v\n", validateErrors)
 							mu.Lock()
 							failed = true
 							mu.Unlock()
 							t.UpdateMessage(fmt.Sprintf("%s %d ✗", fn, resp.StatusCode))
 							t.MarkAsErrored()
+							pw.Log(fmt.Sprintf("Validation failed for %s:", fn))
+							for _, e := range validateErrors {
+								var msg string
+								instancePath := strings.Join(e.InstancePath, ".")
+								schemaPath := strings.Join(e.SchemaPath, ".")
+								if strings.HasSuffix(schemaPath, "required") || strings.HasSuffix(schemaPath, "properties") {
+									msg = fmt.Sprintf("  - Missing required property: %s", instancePath)
+								} else if strings.HasSuffix(schemaPath, "type") {
+									msg = fmt.Sprintf("  - Type mismatch at %s: schema path %s", instancePath, schemaPath)
+								} else {
+									msg = fmt.Sprintf("  - Validation error at %s: schema path %s", instancePath, schemaPath)
+								}
+								pw.Log(msg)
+							}
 							return
 						}
 
