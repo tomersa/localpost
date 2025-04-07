@@ -100,7 +100,7 @@ func TestCmd() *cobra.Command {
 						}
 
 						// Validate schema
-						schemaPath := filepath.Join("lpost/schemas", fn+".jtd.json")
+						schemaPath := filepath.Join(util.SchemasDir, fn+".jtd.json")
 						schemaData, err := os.ReadFile(schemaPath)
 						if err != nil {
 							mu.Lock()
@@ -130,7 +130,8 @@ func TestCmd() *cobra.Command {
 							t.MarkAsErrored()
 							return
 						}
-						if _, _ = jtd.Validate(schema, doc); err != nil {
+						if validateErrors, err := jtd.Validate(schema, doc); len(validateErrors) != 0 || err != nil {
+							fmt.Printf("%#v\n", validateErrors)
 							mu.Lock()
 							failed = true
 							mu.Unlock()
