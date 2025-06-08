@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/fatih/color"
 	"os"
+
+	"github.com/fatih/color"
 
 	"github.com/moshe5745/localpost/commands"
 	"github.com/moshe5745/localpost/util"
@@ -35,8 +36,7 @@ func main() {
 			flag := cmd.PersistentFlags().Lookup("env")
 			if flag != nil {
 				if flagEnv := flag.Value.String(); flagEnv != "" {
-					err := util.SetEnv(flagEnv)
-					if err != nil {
+					if err := util.SetEnv(flagEnv); err != nil {
 						return fmt.Errorf("error setting environment: %v", err)
 					}
 				}
