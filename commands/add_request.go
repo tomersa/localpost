@@ -69,11 +69,9 @@ func AddRequestCmd() *cobra.Command {
 			// Body Type Menu (only for body-supporting methods)
 			body := util.Body{}
 			bodyMethods := map[string]bool{
-				"POST":    true,
-				"PUT":     true,
-				"PATCH":   true,
-				"OPTIONS": true,
-				"TRACE":   true,
+				"POST":  true,
+				"PUT":   true,
+				"PATCH": true,
 			}
 			var headers map[string]string
 			if bodyMethods[method] {

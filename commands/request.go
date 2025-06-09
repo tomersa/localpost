@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/fatih/color"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/fatih/color"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/jedib0t/go-pretty/v6/text"
@@ -155,7 +156,7 @@ Use --verbose to show detailed request and response information.`,
 				fmt.Println(color.CyanString("Request:"))
 				fmt.Println(color.HiBlueString("  Headers:"))
 				if resp.ReqHeaders == nil || len(resp.ReqHeaders) == 0 {
-					fmt.Printf(color.HiYellowString("    <Empty>\n"))
+					fmt.Println(color.HiYellowString("    <Empty>"))
 				}
 				for k, v := range resp.ReqHeaders {
 					fmt.Printf("    %s: %s\n", k, v)
@@ -164,12 +165,12 @@ Use --verbose to show detailed request and response information.`,
 				if resp.ReqBody != "" {
 					fmt.Printf("%s\n", reqBodyDisplay)
 				} else {
-					fmt.Printf(color.HiYellowString("    <Empty>\n"))
+					fmt.Println(color.HiYellowString("    <Empty>"))
 				}
 				fmt.Println(color.CyanString("Response:"))
 				fmt.Println(color.HiBlueString("  Headers:"))
 				if resp.RespHeaders == nil || len(resp.RespHeaders) == 0 {
-					fmt.Printf(color.HiYellowString("    <Empty>\n"))
+					fmt.Println(color.HiYellowString("    <Empty>"))
 				}
 				for k, v := range resp.RespHeaders {
 					for _, val := range v {
@@ -181,7 +182,7 @@ Use --verbose to show detailed request and response information.`,
 			if resp.RespBody != "" {
 				fmt.Printf("%s\n", respBodyDisplay)
 			} else {
-				fmt.Printf(color.HiYellowString("    <Empty>\n"))
+				fmt.Println(color.HiYellowString("    <Empty>"))
 			}
 		},
 		ValidArgsFunction: requestCompletionFunc,
