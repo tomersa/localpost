@@ -1,4 +1,5 @@
 # Localpost
+
 Localpost is a CLI API client for storing, and executing HTTP request collections, with support for environment variables and dynamic response handling.
 
 ## Features
@@ -10,10 +11,13 @@ Localpost is a CLI API client for storing, and executing HTTP request collection
 - **Baseline testing**
 
 ## How it works?
+
 Localpost uses your Git repo to share HTTP requests. Each request is a YAML file in the `requests/` folder, named `METHOD_request_nickname.yaml`, ready to commit and collaborate.
 
 > ⚠️ **Note:** The \<METHOD> (e.g., POST) is parsed from the filename and must be uppercase. The \<nickname> is arbitrary for you choice.
+
 #### Request definition example:
+
 ```yaml
 #          ∨∨∨∨ Method: Must match HTTP method (e.g., GET, POST)
 # requests/POST_login.yaml
@@ -33,76 +37,79 @@ set-env-var:
 
 You can easily create those definitions with: `lpost add-request`
 
-> ℹ️ **Shorthand**: Use `lpost` alias that is already set for you.
-
 Now you can execute this request with `lpost request POST_login` or with shorthand flag `lpost -r POST_login`.
 
 > ℹ️ **Collaboration**: Commit your request definitions files to your repo to collaborate with others, or manage them locally without sharing. All the files is stored in `lpost`.
 
+## Installation
 
-##  Installation
 - Grab the latest release from [GitHub Releases](https://github.com/moshe5745/localpost/releases):
   - ### Download the binary
     - #### macOS Intel (amd64)
-        ```bash
-        curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-darwin-amd64 -o localpost
-        ```
+      ```bash
+      curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-darwin-amd64 -o lpost
+      ```
     - #### macOS Apple Silicon (arm64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-darwin-arm64 -o localpost  
+      curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-darwin-arm64 -o lpost
       ```
     - #### Linux (amd64)
-       ```bash
-       curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-linux-amd64 -o localpost
-       ```
+      ```bash
+      curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-linux-amd64 -o lpost
+      ```
     - #### Linux (arm64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-linux-arm64 -o localpost  
+      curl -L https://github.com/moshe5745/localpost/releases/download/v1.0.2/localpost-v1.0.2-linux-arm64 -o lpost
       ```
   - ### Make it executable
     ```bash
-    chmod +x localpost
+    chmod +x lpost
     ```
   - ### Move to /usr/local/bin (So it will be globally available in your machine)
     ```bash
-    sudo mv localpost /usr/local/bin/localpost
+    sudo mv lpost /usr/local/bin/lpost
     ```
 
 ### Shell Completion installation
+
 - Enable autocompletion by adding the following to your shell config file.
   - Zsh
     ```zsh
-    source <(lpost completion --shell zsh)
     # Add to ~/.zshrc
+    source <(lpost completion --shell zsh)
     ```
   - Bash
     ```bash
-    source <(lpost completion --shell bash)
     # Add to ~/.bashrc
+    source <(lpost completion --shell bash)
     ```
   - Fish
     ```bash
-    source (lpost completion --shell fish | psub)
     # Add to ~/.config/fish/config.fish
+    source (lpost completion --shell fish | psub)
     ```
 - Use TAB key for completion
-> ⚠️  After adding the completion line to your shell config (e.g., ~/.zshrc), run `source ~/.zshrc` (or equivalent) to apply it immediately, or restart your shell.
+  > ⚠️ After adding the completion line to your shell config (e.g., ~/.zshrc), run `source ~/.zshrc` (or equivalent) to apply it immediately, or restart your shell.
 
 ## Basic usage example
+
 ```bash
 lpost add-request
 # POST_login added
 ```
+
 ```bash
 lpost set-env prod
 # Default env is dev
 ```
+
 ```bash
 lpost set-env-var BASE_URL https://example.com
 ```
+
 ```bash
 lpost -r POST_login
-$: 
+$:
 +--------+------+-------------------------+
 | STATUS | TIME | BODY                    |
 +--------+------+-------------------------+
@@ -127,7 +134,7 @@ Request
     ...
 Request
   Body:
-    
+
 -----
 Response
   Headers:
@@ -139,27 +146,33 @@ Request
 ```
 
 ## Environment Variables
+
 - Use `lpost` to store and manage variables for different environments (e.g., `dev`, `prod`).
 - Let you set custom values (e.g., API endpoints, credentials) per environment.
 
 > ℹ️ **Note**: These environment variables are unique to `localpost` and stored in `config.yaml`—they’re separate from your shell’s environment, `.env` files, or other tools.
 
 ### Setting Environment Variables
+
 You can set variables in two ways:
+
 - **CLI**:
   ```bash
   lpost set-env-var BASE_URL https://api.example.com
   ```
 - **YAML**:
+
   ```yaml
-  ...
+  ---
   set-env-var:
     TOKEN: # Var name
       body: jwt-token # from "jwt-token" param in JSON body
-    Cookie: 
+    Cookie:
       header: Cookie # from "Cookie" header
   ```
-Then you can use them inside your requests definitions:
+
+  Then you can use them inside your requests definitions:
+
 ```yaml
 url: "{BASE_URL}/login"
 headers:
@@ -167,13 +180,14 @@ headers:
 ```
 
 ## Configuration file
+
 For storing the collection env vars and current env used.
 
 - **File**: `config.yaml` in the `lpost` directory.
 - **Format**:
   ```yaml
   env: dev # Current env used
-  envs:    # All envs list
+  envs: # All envs list
     dev:
       BASE_URL: https://api.dev.com
       TOKEN: 123
@@ -184,10 +198,12 @@ For storing the collection env vars and current env used.
       BASE_URL: https://api.prod.com
       TOKEN: 456
   ```
-> ℹ️ Note: `config.yaml` is created automatically on first use with a default `env: dev` if it doesn’t exist.
+  > ℹ️ Note: `config.yaml` is created automatically on first use with a default `env: dev` if it doesn’t exist.
 
 ### Request YAML Format
+
 Request files are stored in the `requests/` directory. Example (`requests/POST_login.yaml`):
+
 ```yaml
 url: "{BASE_URL}/login"
 headers:
@@ -204,18 +220,19 @@ set-env-var:
 
 ## Commands full list
 
-| Command                  | Description                                                                                                  | Example Usage                         |
-|--------------------------|--------------------------------------------------------------------------------------------------------------|---------------------------------------|
-| `init`                   | Initialize `localpost`. creates `lpost/` directory with `config.yaml` and `requests/`.             | `$: lpost init`                      |
-| `add-request`            | Create a new request YAML file interactively with prompts for nickname, URL, method, and body type.          | `$: lpost add-request`               |
-| `request <METHOD_name>`  | Execute a request from a YAML file in `requests/`. Use `--infer-schema` to generate JTD schema. Shorthand: `-r`. | `$: lpost -r POST_login` or `$: lpost request GET_config --infer-schema` |
-| `test`                   | Run all requests in `requests/` and validate responses against stored JTD schemas in `schemas/`.             | `$: lpost test`                      |
-| `set-env <env>`          | Set the current environment in `config.yaml`.                                                                | `$: lpost set-env prod`              |
-| `set-env-var <key> <value>` | Set an environment variable for the current environment in `config.yaml`.                                    | `$: lpost set-env-var BASE_URL https://api.example.com` |
-| `show-env`               | Display the current environment and variables from `config.yaml`. Use `--all` for the full config.           | `$: lpost show-env` or `$: lpost show-env --all` |
-| `completion`             | Output completion script for your shell (bash, zsh, fish) to stdout. Requires `--shell` flag.                | `$: source <(lpost completion --shell zsh)` |
+| Command                     | Description                                                                                                      | Example Usage                                                            |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `init`                      | Initialize `localpost`. creates `lpost/` directory with `config.yaml` and `requests/`.                           | `$: lpost init`                                                          |
+| `add-request`               | Create a new request YAML file interactively with prompts for nickname, URL, method, and body type.              | `$: lpost add-request`                                                   |
+| `request <METHOD_name>`     | Execute a request from a YAML file in `requests/`. Use `--infer-schema` to generate JTD schema. Shorthand: `-r`. | `$: lpost -r POST_login` or `$: lpost request GET_config --infer-schema` |
+| `test`                      | Run all requests in `requests/` and validate responses against stored JTD schemas in `schemas/`.                 | `$: lpost test`                                                          |
+| `set-env <env>`             | Set the current environment in `config.yaml`.                                                                    | `$: lpost set-env prod`                                                  |
+| `set-env-var <key> <value>` | Set an environment variable for the current environment in `config.yaml`.                                        | `$: lpost set-env-var BASE_URL https://api.example.com`                  |
+| `show-env`                  | Display the current environment and variables from `config.yaml`. Use `--all` for the full config.               | `$: lpost show-env` or `$: lpost show-env --all`                         |
+| `completion`                | Output completion script for your shell (bash, zsh, fish) to stdout. Requires `--shell` flag.                    | `$: source <(lpost completion --shell zsh)`                              |
 
 - **Global Flag**: Override the environment temporarily with `-e` or `--env`:
+
   ```bash
   lpost -e prod -r GET_users
   ```
@@ -227,6 +244,7 @@ set-env-var:
   - `text`: Plain text (e.g., `example text`).
 
 ## Building from Source
+
 1. Clone the repo:
    ```bash
    git clone https://github.com/moshe5745/localpost.git
@@ -242,12 +260,15 @@ set-env-var:
    ```
 
 ## Roadmap
+
 Planned features to enhance `localpost`—contributions welcome!
 
 ### Next Release (v1.1.0)
+
 - **Schema Snapshot Tests**: Compare response schemas against saved snapshots for regression testing (`lpost test`).
 
 ### Future Releases
+
 - **OpenAPI Integration**: Import OpenAPI specs to auto-generate request files (`lpost import-openapi`).
 - **Request Validation**: Define expected status codes or headers in YAML to validate responses.
 - **Mock Server Mode**: Run `lpost` as a mock API server using request files (`lpost mock`).
@@ -256,5 +277,9 @@ Planned features to enhance `localpost`—contributions welcome!
 > ℹ️ **Got ideas?**: Share them at [github.com/moshe5745/localpost](https://github.com/moshe5745/localpost)!
 
 ## License
+
 [MIT License](LICENSE)
+
+```
+
 ```
