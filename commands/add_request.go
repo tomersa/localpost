@@ -102,6 +102,10 @@ func AddRequestCmd() *cobra.Command {
 				}
 			}
 
+			if err := addCustomHeaders(&headers); err != nil {
+				fmt.Printf("Error while adding custom headers")
+			}
+
 			req := util.RequestDefinition{
 				Method:  method,
 				Headers: headers,
@@ -134,4 +138,41 @@ func AddRequestCmd() *cobra.Command {
 			return nil, cobra.ShellCompDirectiveNoFileComp
 		},
 	}
+}
+
+func addCustomHeaders(headers *map[string]string) error {
+	prompt := promptui.Prompt{
+		Label: "Add custom headers (key: value), leave empty to finish",
+		Validate: func(input string) error {
+			if strings.TrimSpace(input) == "" {
+				return nil // Allow empty input to finish
+			}
+			parts := strings.SplitN(input, ":", 2)
+			if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+				return fmt.Errorf("header must be in 'key: value' format")
+			}
+			return nil
+		},
+	}
+
+	for {
+		header, err := prompt.Run()
+		if err != nil {
+			if err.Error() == "Prompt interrupted" {
+				break // Exit on interrupt
+			}
+			return err
+		}
+		if strings.TrimSpace(header) == "" {
+			break // Exit on empty input
+		}
+		parts := strings.SplitN(header, ":", 2)
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if (*headers) == nil {
+			(*headers) = map[string]string{}
+		}
+		(*headers)[key] = value
+	}
+	return nil
 }
