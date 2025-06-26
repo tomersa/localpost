@@ -88,6 +88,12 @@ Now you can execute this request with `lpost request POST_login` or with shortha
     # Add to ~/.config/fish/config.fish
     source (lpost completion --shell fish | psub)
     ```
+  - PowerShell
+    ```bash
+    # Download automated script(setup-completion.ps1) from this repo and run it in your machine.
+    # .\setup-completion.ps1
+
+    ```
 - Use TAB key for completion
   > ⚠️ After adding the completion line to your shell config (e.g., ~/.zshrc), run `source ~/.zshrc` (or equivalent) to apply it immediately, or restart your shell.
 
