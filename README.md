@@ -12,17 +12,8 @@ Localpost is a CLI API client for storing, and executing HTTP request collection
 
 ## How it works?
 
-Localpost uses your Git repo to share HTTP requests. Each request is a YAML file in the `requests/` folder, named `METHOD_request_nickname.yaml`, ready to commit and collaborate.
-
-> ⚠️ **Note:** The \<METHOD> (e.g., POST) is parsed from the filename and must be uppercase. The \<nickname> is arbitrary for you choice.
-
 #### Request definition example:
-
 ```yaml
-#          ∨∨∨∨ Method: Must match HTTP method (e.g., GET, POST)
-# requests/POST_login.yaml
-#               ∧∧∧∧∧ Nickname: Your custom label
-url: "{BASE_URL}/auth_login"
 headers:
   Accept: application/json
   Content-Type: application/json
@@ -43,7 +34,7 @@ Now you can execute this request with `lpost request POST_login` or with shortha
 
 ## Installation
 
-- Grab the latest release from [GitHub Releases](https://github.com/moshe5745/localpost/releases) (Latest: ![Version](https://img.shields.io/github/v/release/moshe5745/localpost?logo=go&style=flat)):
+- Grab the latest release from [GitHub Releases](https://github.com/moshe5745/localpost/releases) ![Version](https://img.shields.io/github/v/release/moshe5745/localpost?logo=go&style=flat)
   - ### Download the binary
     - #### macOS Intel (amd64)
       ```bash
