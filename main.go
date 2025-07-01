@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	version = "0.0.1"
+	version = "0.0.2"
 	commit  = "none"
 	date    = "unknown"
 )
@@ -20,7 +20,7 @@ var (
 func main() {
 	rootCmd := &cobra.Command{
 		Use:     "localpost",
-		Version: Version,
+		Version: version,
 		Short:   "A CLI tool to manage and execute HTTP requests",
 		Long:    `A tool to save and execute HTTP requests stored in a Git repository.`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
