@@ -2,6 +2,10 @@
 
 Localpost is a CLI API client for storing, and executing HTTP request collections, with support for environment variables and dynamic response handling.
 
+![Version](https://img.shields.io/github/v/release/moshe5745/localpost?logo=go&style=flat)
+![Build Status](https://img.shields.io/github/actions/workflow/status/moshe5745/localpost/release.yml?logo=github&style=flat)
+![License](https://img.shields.io/github/license/moshe5745/localpost?style=flat)
+
 ## Features
 
 - **Auto Generation for Request Definition**
@@ -34,7 +38,7 @@ Now you can execute this request with `lpost request POST_login` or with shortha
 
 ## Installation
 
-- Grab the latest release from [GitHub Releases](https://github.com/moshe5745/localpost/releases) ![Version](https://img.shields.io/github/v/release/moshe5745/localpost?logo=go&style=flat)
+- Grab the latest release from [GitHub Releases](https://github.com/moshe5745/localpost/releases)
   - ### Download the binary
     - #### macOS Intel (amd64)
       ```bash
