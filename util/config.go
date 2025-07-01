@@ -16,8 +16,7 @@ type Config struct {
 	Envs map[string]Env `yaml:"envs"`
 }
 
-// CheckRepoContext verifies if the current directory contains a val
-// id localpost project.
+// CheckRepoContext verifies if the current directory contains a valid localpost project.
 func CheckRepoContext() error {
 	if _, err := os.Stat(LocalpostDir); os.IsNotExist(err) {
 		return fmt.Errorf("lpost directory not found")
@@ -75,7 +74,7 @@ func ReadConfig() (*Config, error) {
 		config.Envs[config.Env] = Env{
 			Vars:    currentEnv.Vars,
 			Login:   currentEnv.Login,
-			Timeout: defaultEnv["dev"].Timeout,
+			Timeout: currentEnv.Timeout,
 		}
 	}
 

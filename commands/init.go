@@ -2,10 +2,12 @@ package commands
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/moshe5745/localpost/util"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
-	"os"
 )
 
 func InitCmd() *cobra.Command {
@@ -53,13 +55,46 @@ func InitCmd() *cobra.Command {
 				fmt.Printf("%s already exists\n", util.ConfigFilePath)
 			}
 
+			// Create default login request file
+			if _, err := os.Stat(filepath.Join(util.RequestsDir, "auth/login/POST.yaml")); os.IsNotExist(err) {
+				loginReq := util.RequestDefinition{
+					Method: "POST",
+					URL:    "{BASE_URL}/login",
+					Body: util.Body{
+						Json: map[string]interface{}{
+							"username": "user",
+							"password": "pass",
+						},
+					},
+					Headers: map[string]string{
+						"Content-Type": "application/json",
+					},
+				}
+				loginPath := filepath.Join(util.RequestsDir, "auth/login/POST.yaml")
+				if err := os.MkdirAll(filepath.Dir(loginPath), 0755); err != nil {
+					fmt.Printf("Error creating auth/login directory: %v\n", err)
+					os.Exit(1)
+				}
+				loginData, err := yaml.Marshal(&loginReq)
+				if err != nil {
+					fmt.Printf("Error marshaling login request: %v\n", err)
+					os.Exit(1)
+				}
+				if err := os.WriteFile(loginPath, loginData, 0644); err != nil {
+					fmt.Printf("Error writing %s: %v\n", loginPath, err)
+					os.Exit(1)
+				}
+				fmt.Printf("Created %s\n", loginPath)
+			} else {
+				fmt.Printf("%s already exists\n", filepath.Join(util.RequestsDir, "auth/login/POST.yaml"))
+			}
+
 			// Create .ephemeral.yaml
 			if _, err := os.Stat(util.EphemeralFilePath); os.IsNotExist(err) {
 				ephData := util.Ephemeral{
 					Cookies: map[string]string{},
 					Vars:    map[string]string{},
 				}
-
 				data, err := yaml.Marshal(ephData)
 				if err != nil {
 					fmt.Printf("Error marshaling ephemeral: %v\n", err)

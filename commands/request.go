@@ -1,62 +1,43 @@
 package commands
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
-	"time"
 
-	"github.com/fatih/color"
-
-	"github.com/jedib0t/go-pretty/v6/progress"
-	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/moshe5745/localpost/util"
 	"github.com/spf13/cobra"
 )
-
-// formatJSON pretty-prints JSON with proper indentation for verbose output.
-func formatJSON(body string, contentType string) string {
-	if body == "" || contentType == "" || !strings.Contains(contentType, "application/json") {
-		return body
-	}
-	var prettyJSON bytes.Buffer
-	err := json.Indent(&prettyJSON, []byte(body), "", "  ")
-	if err != nil {
-		return body // Fallback to raw if unmarshalling fails
-	}
-	lines := strings.Split(prettyJSON.String(), "\n")
-	for i, line := range lines {
-		lines[i] = "    " + line // Add 4-space prefix to align with "Body:"
-	}
-	return strings.Join(lines, "\n")
-}
 
 func requestCompletionFunc(_ *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	if len(args) >= 1 {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	files, err := os.ReadDir(util.RequestsDir)
+	var requestPaths []string
+	err := filepath.Walk(util.RequestsDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() && strings.HasSuffix(info.Name(), ".yaml") {
+			relPath, err := filepath.Rel(util.RequestsDir, path)
+			if err != nil {
+				return err
+			}
+			relPath = strings.ReplaceAll(relPath, string(os.PathSeparator), "/")
+			requestPath := "/" + strings.TrimSuffix(relPath, ".yaml")
+			if strings.HasPrefix(requestPath, "/"+strings.TrimPrefix(toComplete, "/")) {
+				requestPaths = append(requestPaths, requestPath)
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		return nil, cobra.ShellCompDirectiveNoFileComp
 	}
 
-	var requestFiles []string
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".yaml") {
-			fullName := strings.TrimSuffix(file.Name(), ".yaml")
-			if strings.HasPrefix(fullName, toComplete) {
-				requestFiles = append(requestFiles, fullName)
-			}
-		}
-	}
-
-	if len(requestFiles) > 0 {
-		return requestFiles, cobra.ShellCompDirectiveNoSpace
-	}
-	return nil, cobra.ShellCompDirectiveNoFileComp
+	return requestPaths, cobra.ShellCompDirectiveNoSpace
 }
 
 func RequestCmd() *cobra.Command {
@@ -64,125 +45,43 @@ func RequestCmd() *cobra.Command {
 	var inferSchema bool
 
 	cmd := &cobra.Command{
-		Use:     "request <METHOD_name>",
+		Use:     "request <path>",
 		Aliases: []string{"r"},
 		Short:   "Execute a request from a YAML file in the requests/ directory",
 		Long: `Execute a request defined in a YAML file located in the requests/ directory.
-The file should be named as METHOD_name.yaml (e.g., GET_config.yaml).
+The path should be in the format /path/to/dir/METHOD (e.g., /user/POST or /api/v1/auth/login/POST).
 Use --infer-schema to generate a JTD schema from the response.
 Use --verbose to show detailed request and response information.`,
 		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			fileName := args[0]
-			parts := strings.SplitN(fileName, "_", 2)
-			if len(parts) != 2 {
-				fmt.Printf("Error: invalid filename format '%s', expected 'METHOD_name' (e.g., 'POST_login')\n", fileName)
+			requestPath := args[0]
+			requestPath = strings.TrimPrefix(requestPath, "/")
+			if requestPath == "" {
+				fmt.Println("Error: request path cannot be empty")
 				os.Exit(1)
 			}
 
-			// Setup progress writer
-			pw := progress.NewWriter()
-			pw.SetAutoStop(false)
-			pw.SetTrackerLength(25)
-			pw.SetMessageWidth(40)
-			pw.SetStyle(progress.StyleDefault)
-			pw.SetUpdateFrequency(time.Millisecond * 100)
-			pw.SetTrackerPosition(progress.PositionRight)
-			pw.Style().Colors = progress.StyleColorsExample
-			pw.Style().Visibility.Percentage = false
-			pw.Style().Visibility.Value = false
-			pw.Style().Visibility.TrackerOverall = false
-			pw.Style().Visibility.Time = true
-
-			// Create tracker with indeterminate progress (Total: 0)
-			tracker := &progress.Tracker{
-				Message: fmt.Sprintf("%s idle", fileName),
-				Total:   0, // Indeterminate—moving # animation
+			// Validate that the path ends with a valid HTTP method
+			parts := strings.Split(requestPath, "/")
+			if len(parts) < 1 {
+				fmt.Printf("Error: invalid request path '%s', expected format '/path/to/dir/METHOD'\n", requestPath)
+				os.Exit(1)
 			}
-			pw.AppendTracker(tracker)
+			method := parts[len(parts)-1]
+			validMethods := map[string]bool{
+				"GET": true, "POST": true, "PUT": true, "DELETE": true,
+				"PATCH": true, "HEAD": true, "OPTIONS": true, "TRACE": true,
+			}
+			if !validMethods[method] {
+				fmt.Printf("Error: invalid HTTP method '%s' in path, expected one of %v\n", method, validMethods)
+				os.Exit(1)
+			}
 
-			// Render progress in a goroutine
-			go pw.Render()
-
-			// Execute request
-			resp, err := util.HandleRequest(fileName, inferSchema)
+			filePath := filepath.Join(util.RequestsDir, requestPath+".yaml")
+			_, err := util.HandleRequest(filePath, verbose, inferSchema)
 			if err != nil {
-				pw.Stop()
-				tracker.MarkAsErrored()
 				fmt.Printf("Error: %v\n", err)
 				os.Exit(1)
-			}
-
-			// Update tracker with colored status
-			var statusColor text.Color
-			switch {
-			case resp.StatusCode >= 200 && resp.StatusCode < 300:
-				statusColor = text.FgGreen
-			case resp.StatusCode >= 400 && resp.StatusCode < 500:
-				statusColor = text.FgYellow
-			case resp.StatusCode >= 500:
-				statusColor = text.FgRed
-			default:
-				statusColor = text.FgWhite
-			}
-
-			tracker.Total = 100
-			tracker.UpdateMessage(statusColor.Sprintf("%s %d", fileName, resp.StatusCode))
-			tracker.MarkAsDone()
-
-			// Wait for progress to finish
-			for pw.IsRenderInProgress() {
-				if pw.LengthActive() == 0 {
-					pw.Stop()
-				}
-				time.Sleep(time.Millisecond * 10)
-			}
-
-			// Prepare bodies with JSON formatting
-			reqContentType := ""
-			respContentType := ""
-			if len(resp.ReqHeaders["Content-Type"]) > 0 {
-				reqContentType = strings.ToLower(strings.Split(resp.ReqHeaders["Content-Type"], ";")[0])
-			}
-			if len(resp.RespHeaders["Content-Type"]) > 0 {
-				respContentType = strings.ToLower(strings.Split(resp.RespHeaders["Content-Type"][0], ";")[0])
-			}
-			reqBodyDisplay := formatJSON(resp.ReqBody, reqContentType)
-			respBodyDisplay := formatJSON(resp.RespBody, respContentType)
-
-			// Print response body
-			fmt.Println("----------------")
-			if verbose {
-				fmt.Println(color.CyanString("Request:"))
-				fmt.Println(color.HiBlueString("  Headers:"))
-				if resp.ReqHeaders == nil || len(resp.ReqHeaders) == 0 {
-					fmt.Println(color.HiYellowString("    <Empty>"))
-				}
-				for k, v := range resp.ReqHeaders {
-					fmt.Printf("    %s: %s\n", k, v)
-				}
-				fmt.Println(color.HiBlueString("  Body:"))
-				if resp.ReqBody != "" {
-					fmt.Printf("%s\n", reqBodyDisplay)
-				} else {
-					fmt.Println(color.HiYellowString("    <Empty>"))
-				}
-				fmt.Println(color.CyanString("Response:"))
-				fmt.Println(color.HiBlueString("  Headers:"))
-				if resp.RespHeaders == nil || len(resp.RespHeaders) == 0 {
-					fmt.Println(color.HiYellowString("    <Empty>"))
-				}
-				for k, v := range resp.RespHeaders {
-					for _, val := range v {
-						fmt.Printf("    %s: %s\n", k, val)
-					}
-				}
-				fmt.Println(color.HiBlueString("  Body:"))
-			}
-			if resp.RespBody != "" {
-				fmt.Printf("%s\n", respBodyDisplay)
-			} else {
-				fmt.Println(color.HiYellowString("    <Empty>"))
 			}
 		},
 		ValidArgsFunction: requestCompletionFunc,

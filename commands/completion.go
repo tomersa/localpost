@@ -22,7 +22,7 @@ const (
 func CompletionCmd() *cobra.Command {
 	var shell Shell
 	cmd := &cobra.Command{
-		Use:   "completion",
+		Use:   "completion [bash|zsh|fish|powershell]",
 		Short: "Output completion script for your shell",
 		Long: `Output the autocompletion script for the specified shell to stdout.
 Supported shells: bash, zsh, fish, powershell.

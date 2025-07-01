@@ -15,43 +15,43 @@ import (
 func AddRequestCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:     "add-request",
-		Short:   "Create a new request YAML file interactively",
+		Short:   "Create a new request YAML file interactively with hierarchical storage",
 		Args:    cobra.NoArgs,
 		GroupID: "requests",
 		Run: func(cmd *cobra.Command, args []string) {
-			var name, urlPath, method, contentType string
+			var urlPath, method, contentType string
 			var err error
 
-			// RequestDefinition Nickname (Name)
-			prompt := promptui.Prompt{
-				Label: "Enter request nickname (e.g., user-details)",
-				Validate: func(input string) error {
-					if strings.TrimSpace(input) == "" {
-						return fmt.Errorf("nickname cannot be empty")
-					}
-					return nil
-				},
-			}
-			name, err = prompt.Run()
-			if err != nil {
-				fmt.Printf("Prompt failed: %v\n", err)
-				os.Exit(1)
-			}
-
 			// URL Path
-			prompt = promptui.Prompt{
-				Label: "Enter URL (e.g., https://example.com/user/1 or {BASE_URL}/user/{id})",
+			prompt := promptui.Prompt{
+				Label: "Enter URL path (e.g., /user or /api/v1/auth/login, without protocol or domain)",
 				Validate: func(input string) error {
-					if strings.TrimSpace(input) == "" {
-						return fmt.Errorf("URL cannot be empty")
+					input = strings.TrimSpace(input)
+					if input == "" {
+						return fmt.Errorf("URL path cannot be empty")
+					}
+					// Reject protocol or domain (e.g., http://, https://, www.google.com)
+					if strings.Contains(input, "://") || strings.HasPrefix(input, "www.") {
+						return fmt.Errorf("enter only the path (e.g., /user), not a full URL")
 					}
 					return nil
 				},
+				Stdout: os.Stdout,
 			}
 			urlPath, err = prompt.Run()
 			if err != nil {
 				fmt.Printf("Prompt failed: %v\n", err)
 				os.Exit(1)
+			}
+
+			// Derive directory path from URL
+			// Remove leading/trailing slashes, query params, and fragments
+			pathPart := strings.TrimPrefix(urlPath, "/")
+			pathPart = strings.Split(pathPart, "?")[0]
+			pathPart = strings.Split(pathPart, "#")[0]
+			dirPath := pathPart
+			if dirPath == "" {
+				dirPath = "root" // Fallback for root URLs
 			}
 
 			// HTTP Method Menu
@@ -103,27 +103,28 @@ func AddRequestCmd() *cobra.Command {
 			}
 
 			req := util.RequestDefinition{
-				Method:  method,
 				Headers: headers,
 				Body:    body,
-				URL:     urlPath,
 			}
 
-			filePath := filepath.Join(util.RequestsDir, fmt.Sprintf("%s_%s.yaml", method, name))
-			if err := os.MkdirAll(util.RequestsDir, 0755); err != nil {
-				fmt.Printf("Error creating requests directory: %v\n", err)
+			// Create file path: requests/<dirPath>/<method>.yaml
+			fileName := fmt.Sprintf("%s.yaml", method)
+			filePath := filepath.Join(util.RequestsDir, dirPath, fileName)
+			if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+				fmt.Printf("Error creating request directory: %v\n", err)
 				os.Exit(1)
 			}
+
 			data, err := yaml.Marshal(&req)
+			if err != nil {
+				fmt.Printf("Error marshaling request: %v\n", err)
+				os.Exit(1)
+			}
 			yamlStr := string(data)
 			yamlStr = strings.ReplaceAll(yamlStr, "key: value", "#key: value")
 			yamlStr = strings.ReplaceAll(yamlStr, "field: value", "#field: value")
 			yamlStr = strings.ReplaceAll(yamlStr, "example text", "#example text")
 
-			if err != nil {
-				fmt.Printf("Error marshaling request: %v\n", err)
-				os.Exit(1)
-			}
 			if err := os.WriteFile(filePath, []byte(yamlStr), 0644); err != nil {
 				fmt.Printf("Error writing request file: %v\n", err)
 				os.Exit(1)

@@ -33,7 +33,7 @@ type LoginConfig struct {
 // RequestDefinition defines an HTTP request from a YAML file.
 type RequestDefinition struct {
 	Method  string            // Not in YAML, from filename
-	URL     string            `yaml:"url"` // Required
+	URL     string            `yaml:"url,omitempty"` // Optional
 	Headers map[string]string `yaml:"headers,omitempty"`
 	Body    Body              `yaml:"body,omitempty"`
 	SetEnv  map[string]struct {
