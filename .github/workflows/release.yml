@@ -38,6 +38,7 @@ jobs:
       - name: Commit updated docs
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
+          branch: main
           commit_message: "docs: Update version to ${{ github.ref_name }}"
           commit_options: '--no-verify'
           file_pattern: 'README.md' # Make sure this matches the files you changed
