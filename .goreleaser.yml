@@ -51,4 +51,4 @@ changelog:
 
 release:
   name_template: "Release {{.Tag}}"
-  notes: .github/release_notes.md
+  release_notes_file: .github/release_notes.md
