@@ -48,3 +48,7 @@ changelog:
       - '^test:'
       - 'Merge pull request'
       - 'Merge branch'
+
+release:
+  name_template: "Release {{.Tag}}"
+  notes: .github/release_notes.md
