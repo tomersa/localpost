@@ -43,36 +43,36 @@ Now you can execute this request with `lpost request POST_login` or with shortha
 
 ## Installation
 
-- Grab the latest release from [GitHub Releases](https://github.com/moshe5745/localpost/releases):
+- Grab the latest release from [GitHub Releases](https://github.com/moshe5745/localpost/releases) (Latest: ![Version](https://img.shields.io/github/v/release/moshe5745/localpost?logo=go&style=flat)):
   - ### Download the binary
     - #### macOS Intel (amd64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/vv0.0.1/localpost-darwin-amd64 -o lpost
+      curl -L https://github.com/moshe5745/localpost/releases/latest/download/localpost_darwin_amd64.tar.gz -o lpost.tar.gz
+      tar -xzf lpost.tar.gz
       ```
     - #### macOS Apple Silicon (arm64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/vv0.0.1/localpost-darwin-arm64 -o lpost
+      curl -L https://github.com/moshe5745/localpost/releases/latest/download/localpost_darwin_arm64.tar.gz -o lpost.tar.gz
+      tar -xzf lpost.tar.gz
       ```
     - #### Linux (amd64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/vv0.0.1/localpost-linux-amd64 -o lpost
+      curl -L https://github.com/moshe5745/localpost/releases/latest/download/localpost_linux_amd64.tar.gz -o lpost.tar.gz
+      tar -xzf lpost.tar.gz
       ```
     - #### Linux (arm64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/vv0.0.1/localpost-linux-arm64 -o lpost
+      curl -L https://github.com/moshe5745/localpost/releases/latest/download/localpost_linux_arm64.tar.gz -o lpost.tar.gz
+      tar -xzf lpost.tar.gz
       ```
-    - #### Windows (x86\_64)
+    - #### Windows (x86_64)
       ```powershell
-      # Using curl (included in Windows 10/11)
-      curl -L https://github.com/moshe5745/localpost/releases/download/v0.0.1/localpost_windows_x86_64.zip -o lpost.zip
-      # Unzip the file
+      curl -L https://github.com/moshe5745/localpost/releases/latest/download/localpost_windows_x86_64.zip -o lpost.zip
       Expand-Archive -Path lpost.zip -DestinationPath .
       ```
     - #### Windows (ARM64)
       ```powershell
-      # Using curl (included in Windows 10/11)
-      curl -L https://github.com/moshe5745/localpost/releases/download/v0.0.1/localpost_windows_arm64.zip -o lpost.zip
-      # Unzip the file
+      curl -L https://github.com/moshe5745/localpost/releases/latest/download/localpost_windows_arm64.zip -o lpost.zip
       Expand-Archive -Path lpost.zip -DestinationPath .
       ```
   - ### Make it executable
