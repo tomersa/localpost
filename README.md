@@ -47,31 +47,31 @@ Now you can execute this request with `lpost request POST_login` or with shortha
   - ### Download the binary
     - #### macOS Intel (amd64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/v__VERSION__/localpost-darwin-amd64 -o lpost
+      curl -L https://github.com/moshe5745/localpost/releases/download/vv0.0.1/localpost-darwin-amd64 -o lpost
       ```
     - #### macOS Apple Silicon (arm64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/v__VERSION__/localpost-darwin-arm64 -o lpost
+      curl -L https://github.com/moshe5745/localpost/releases/download/vv0.0.1/localpost-darwin-arm64 -o lpost
       ```
     - #### Linux (amd64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/v__VERSION__/localpost-linux-amd64 -o lpost
+      curl -L https://github.com/moshe5745/localpost/releases/download/vv0.0.1/localpost-linux-amd64 -o lpost
       ```
     - #### Linux (arm64)
       ```bash
-      curl -L https://github.com/moshe5745/localpost/releases/download/v__VERSION__/localpost-linux-arm64 -o lpost
+      curl -L https://github.com/moshe5745/localpost/releases/download/vv0.0.1/localpost-linux-arm64 -o lpost
       ```
     - #### Windows (x86\_64)
       ```powershell
       # Using curl (included in Windows 10/11)
-      curl -L https://github.com/moshe5745/localpost/releases/download/__VERSION__/localpost_windows_x86_64.zip -o lpost.zip
+      curl -L https://github.com/moshe5745/localpost/releases/download/v0.0.1/localpost_windows_x86_64.zip -o lpost.zip
       # Unzip the file
       Expand-Archive -Path lpost.zip -DestinationPath .
       ```
     - #### Windows (ARM64)
       ```powershell
       # Using curl (included in Windows 10/11)
-      curl -L https://github.com/moshe5745/localpost/releases/download/__VERSION__/localpost_windows_arm64.zip -o lpost.zip
+      curl -L https://github.com/moshe5745/localpost/releases/download/v0.0.1/localpost_windows_arm64.zip -o lpost.zip
       # Unzip the file
       Expand-Archive -Path lpost.zip -DestinationPath .
       ```
