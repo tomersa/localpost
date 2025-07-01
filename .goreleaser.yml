@@ -50,5 +50,6 @@ changelog:
       - 'Merge branch'
 
 release:
-  name_template: "Release {{.Tag}}"
-  release_notes_file: .github/release_notes.md
+  header: |
+    ## Release {{ .Tag }} ({{ .Date }})
+  mode: append
