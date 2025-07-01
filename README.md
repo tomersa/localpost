@@ -69,12 +69,12 @@ Now you can execute this request with `lpost request POST_login` or with shortha
       Expand-Archive -Path lpost.zip -DestinationPath .
       ```
     - #### Windows (ARM64)
-    ```powershell
-    # Using curl (included in Windows 10/11)
-    curl -L https://github.com/moshe5745/localpost/releases/download/__VERSION__/localpost_windows_arm64.zilocalpost_arm64.zip
-    # Unzip the file
-    Expand-Archive -Path localpost_arm64.zip -DestinationPath .
-    ```
+      ```powershell
+      # Using curl (included in Windows 10/11)
+      curl -L https://github.com/moshe5745/localpost/releases/download/__VERSION__/localpost_windows_arm64.zip -o lpost.zip
+      # Unzip the file
+      Expand-Archive -Path lpost.zip -DestinationPath .
+      ```
   - ### Make it executable
     ```bash
     chmod +x lpost
