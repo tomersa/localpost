@@ -4,45 +4,79 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	jtdinfer "github.com/bombsimon/jtd-infer-go"
-	"gopkg.in/yaml.v3"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
+
+	jtdinfer "github.com/bombsimon/jtd-infer-go"
+	"github.com/fatih/color"
+	"github.com/jedib0t/go-pretty/v6/progress"
+	"github.com/jedib0t/go-pretty/v6/text"
+	"gopkg.in/yaml.v3"
 )
 
-// ReadRequestDefinition reads and parses a request YAML file into a RequestDefinition struct.
-func ReadRequestDefinition(fileName string) (RequestDefinition, error) {
-	filePath := filepath.Join(RequestsDir, fileName+".yaml")
+func formatJSON(body string, contentType string) string {
+	if body == "" || contentType == "" || !strings.Contains(contentType, "application/json") {
+		return body
+	}
+	var prettyJSON bytes.Buffer
+	err := json.Indent(&prettyJSON, []byte(body), "", "  ")
+	if err != nil {
+		return body
+	}
+	lines := strings.Split(prettyJSON.String(), "\n")
+	for i, line := range lines {
+		lines[i] = "    " + line
+	}
+	return strings.Join(lines, "\n")
+}
+
+func readRequestDefinition(filePath string) (RequestDefinition, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return RequestDefinition{}, fmt.Errorf("error reading %s: %v", fileName, err)
+		return RequestDefinition{}, fmt.Errorf("request file %s not found", filePath)
 	}
 
 	var req RequestDefinition
 	if err := yaml.Unmarshal(data, &req); err != nil {
-		return RequestDefinition{}, fmt.Errorf("error parsing %s: %v", fileName, err)
+		return RequestDefinition{}, fmt.Errorf("error parsing %s: %v", filePath, err)
 	}
 
-	parts := strings.SplitN(fileName, "_", 2)
-	if len(parts) != 2 {
-		return RequestDefinition{}, fmt.Errorf("invalid request name format: %s (expected METHOD_name)", fileName)
-	}
-	req.Method = strings.ToUpper(parts[0])
+	// Set Method strictly from filename
+	req.Method = strings.TrimSuffix(filepath.Base(filePath), ".yaml")
 
+	// Set URL from directory path and BASE_URL from config
 	if req.URL == "" {
-		return RequestDefinition{}, fmt.Errorf("url is required in %s", fileName)
+		env, err := LoadEnv()
+		if err != nil {
+			return RequestDefinition{}, fmt.Errorf("error loading env: %v", err)
+		}
+		baseURL, ok := env.Vars["BASE_URL"]
+		if !ok {
+			return RequestDefinition{}, fmt.Errorf("BASE_URL not found. Please set it in config.yaml")
+		}
+		relPath, err := filepath.Rel(RequestsDir, filePath)
+		if err != nil {
+			return RequestDefinition{}, fmt.Errorf("error getting relative path for %s: %v", filePath, err)
+		}
+		urlPath := strings.TrimSuffix(relPath, filepath.Ext(relPath))
+		if urlPath == "." {
+			urlPath = ""
+		} else {
+			urlPath = strings.ReplaceAll(urlPath, string(os.PathSeparator), "/")
+		}
+		req.URL = baseURL + "/" + urlPath
 	}
 
 	return req, nil
 }
 
-// processResponse handles post-request actions like set-env-var.
 func processResponse(reqDef RequestDefinition, resp Response) error {
 	if len(reqDef.SetEnv) > 0 {
 		for varName, source := range reqDef.SetEnv {
@@ -67,7 +101,6 @@ func processResponse(reqDef RequestDefinition, resp Response) error {
 		}
 	}
 
-	// Update runtime cookies using SetCookie from ephemeral.go
 	if setCookies, ok := resp.RespHeaders["Set-Cookie"]; ok && len(setCookies) > 0 {
 		for _, cookie := range setCookies {
 			parts := strings.SplitN(cookie, ";", 2)
@@ -87,8 +120,24 @@ func processResponse(reqDef RequestDefinition, resp Response) error {
 	return nil
 }
 
-// executeHTTPRequest performs the actual HTTP request and returns the response.
-func executeHTTPRequest(reqDef RequestDefinition, fileName string, inferSchema bool, isRetry bool) (Response, error) {
+func inferSchema(resp Response, filePath string) {
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && strings.TrimSpace(resp.RespBody) != "" {
+		var doc interface{}
+		if err := json.Unmarshal([]byte(resp.RespBody), &doc); err == nil {
+			schema := jtdinfer.InferStrings([]string{resp.RespBody}, jtdinfer.WithoutHints()).IntoSchema()
+			dirPath := filepath.Dir(filePath)
+			method := strings.TrimSuffix(filepath.Base(filePath), ".yaml")
+			schemaPath := filepath.Join(dirPath, method+".jtd.json")
+			schemaBytes, err := json.MarshalIndent(schema, "", "  ")
+			if err == nil {
+				os.MkdirAll(dirPath, 0755)
+				os.WriteFile(schemaPath, schemaBytes, 0644)
+			}
+		}
+	}
+}
+
+func executeHTTPRequest(reqDef RequestDefinition, filePath string, inferSchema bool, isRetry bool) (Response, error) {
 	env, err := LoadEnv()
 	if err != nil {
 		return Response{}, fmt.Errorf("error loading env: %v", err)
@@ -190,7 +239,6 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, inferSchema b
 		}
 	}
 
-	// Create HTTP client with timeout from config
 	client := &http.Client{
 		Timeout: time.Duration(env.Timeout) * time.Second,
 	}
@@ -239,28 +287,10 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, inferSchema b
 	}
 
 	if env.Login != nil && !isRetry {
-		for _, status := range env.Login.TriggeredBy {
-			if response.StatusCode == status {
-				_, err := HandleRequest(env.Login.Request, false)
-				if err != nil {
-					return Response{}, fmt.Errorf("error executing login request %s: %v", env.Login.Request, err)
-				}
-
-				return executeHTTPRequest(reqDef, fileName, inferSchema, true)
-			}
-		}
-	}
-
-	// Generate JTD schema if inferSchema is true
-	if inferSchema && response.StatusCode >= 200 && response.StatusCode < 300 && strings.TrimSpace(respBody) != "" {
-		var doc interface{}
-		if err := json.Unmarshal([]byte(respBody), &doc); err == nil {
-			schema := jtdinfer.InferStrings([]string{respBody}, jtdinfer.WithoutHints()).IntoSchema()
-			schemaPath := filepath.Join(SchemasDir, fileName+".jtd.json")
-			schemaBytes, err := json.MarshalIndent(schema, "", "  ")
-			if err == nil {
-				os.MkdirAll(filepath.Dir(schemaPath), 0755)
-				os.WriteFile(schemaPath, schemaBytes, 0644)
+		if slices.Contains(env.Login.TriggeredBy, response.StatusCode) {
+			loginReqDef, err := readRequestDefinition(filepath.Join(RequestsDir, env.Login.Request))
+			if err != nil {
+				return executeHTTPRequest(loginReqDef, filePath, inferSchema, true)
 			}
 		}
 	}
@@ -268,20 +298,117 @@ func executeHTTPRequest(reqDef RequestDefinition, fileName string, inferSchema b
 	return response, nil
 }
 
-// HandleRequest executes an HTTP request and returns a Response struct.
-func HandleRequest(fileName string, inferSchema bool) (Response, error) {
-	reqDef, err := ReadRequestDefinition(fileName)
+func HandleRequest(filePath string, verbose, toInferSchema bool) (Response, error) {
+	reqDef, err := readRequestDefinition(filePath)
 	if err != nil {
 		return Response{}, err
 	}
 
-	resp, err := executeHTTPRequest(reqDef, fileName, inferSchema, false)
+	// Setup progress writer
+	pw := progress.NewWriter()
+	pw.SetAutoStop(false)
+	pw.SetTrackerLength(25)
+	pw.SetMessageLength(60)
+	pw.SetStyle(progress.StyleDefault)
+	pw.SetUpdateFrequency(time.Millisecond * 100)
+	pw.SetTrackerPosition(progress.PositionRight)
+	pw.Style().Colors = progress.StyleColorsExample
+	pw.Style().Visibility.Percentage = false
+	pw.Style().Visibility.Value = false
+	pw.Style().Visibility.TrackerOverall = false
+	pw.Style().Visibility.Time = true
+
+	tracker := &progress.Tracker{
+		Message: fmt.Sprintf("%s idle", reqDef.URL),
+		Total:   0,
+	}
+	pw.AppendTracker(tracker)
+
+	go pw.Render()
+
+	resp, err := executeHTTPRequest(reqDef, filePath, toInferSchema, false)
 	if err != nil {
+		pw.Stop()
+		tracker.MarkAsErrored()
 		return Response{}, fmt.Errorf("error executing request: %v", err)
 	}
 
 	if err := processResponse(reqDef, resp); err != nil {
+		pw.Stop()
+		tracker.MarkAsErrored()
 		return Response{}, err
+	}
+
+	var statusColor text.Color
+	switch {
+	case resp.StatusCode >= 200 && resp.StatusCode < 300:
+		statusColor = text.FgGreen
+	case resp.StatusCode >= 400 && resp.StatusCode < 500:
+		statusColor = text.FgYellow
+	case resp.StatusCode >= 500:
+		statusColor = text.FgRed
+	default:
+		statusColor = text.FgWhite
+	}
+
+	tracker.Total = 100
+	tracker.UpdateMessage(statusColor.Sprintf("%s %d", resp.ReqURL, resp.StatusCode))
+	tracker.MarkAsDone()
+
+	for pw.IsRenderInProgress() {
+		if pw.LengthActive() == 0 {
+			pw.Stop()
+		}
+		time.Sleep(time.Millisecond * 10)
+	}
+
+	if toInferSchema {
+		inferSchema(resp, filePath)
+	}
+
+	reqContentType := ""
+	respContentType := ""
+	if len(resp.ReqHeaders["Content-Type"]) > 0 {
+		reqContentType = strings.ToLower(strings.Split(resp.ReqHeaders["Content-Type"], ";")[0])
+	}
+	if len(resp.RespHeaders["Content-Type"]) > 0 {
+		respContentType = strings.ToLower(strings.Split(resp.RespHeaders["Content-Type"][0], ";")[0])
+	}
+	reqBodyDisplay := formatJSON(resp.ReqBody, reqContentType)
+	respBodyDisplay := formatJSON(resp.RespBody, respContentType)
+
+	fmt.Println("----------------------------------------")
+	if verbose {
+		fmt.Println(color.CyanString("Request:"))
+		fmt.Println(color.HiBlueString("  Headers:"))
+		if resp.ReqHeaders == nil || len(resp.ReqHeaders) == 0 {
+			fmt.Println(color.HiYellowString("    <Empty>"))
+		}
+		for k, v := range resp.ReqHeaders {
+			fmt.Printf("    %s: %s\n", k, v)
+		}
+		fmt.Println(color.HiBlueString("  Body:"))
+		if resp.ReqBody != "" {
+			fmt.Printf("%s\n", reqBodyDisplay)
+		} else {
+			fmt.Println(color.HiYellowString("    <Empty>"))
+		}
+		fmt.Println(color.CyanString("Response:"))
+		fmt.Println(color.HiBlueString("  Headers:"))
+		if resp.RespHeaders == nil || len(resp.RespHeaders) == 0 {
+			fmt.Println(color.HiYellowString("    <Empty>"))
+		}
+		for k, v := range resp.RespHeaders {
+			for _, val := range v {
+				fmt.Printf("    %s: %s\n", k, val)
+			}
+		}
+		fmt.Println(color.HiBlueString("  Body:"))
+	}
+	if resp.RespBody != "" {
+		fmt.Printf("%s\n", respBodyDisplay)
+	} else {
+		fmt.Println(color.HiYellowString("    <Empty>"))
 	}
 
 	return resp, nil

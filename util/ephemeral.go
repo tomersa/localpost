@@ -2,8 +2,9 @@ package util
 
 import (
 	"fmt"
-	"gopkg.in/yaml.v3"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
 // LoadCookies reads runtime cookies from .ephemeral (YAML).
@@ -31,7 +32,7 @@ func SaveCookies(cookies map[string]string) error {
 	return os.WriteFile(EphemeralFilePath, data, 0644)
 }
 
-// ClearCookies removes the .cookies file.
+// ClearCookies removes the .ephemeral file.
 func ClearCookies() error {
 	err := os.Remove(EphemeralFilePath)
 	if err != nil {
@@ -39,11 +40,10 @@ func ClearCookies() error {
 			return nil
 		}
 	}
-
 	return err
 }
 
-// SetCookie adds or updates a single ephemeral in .cookies.
+// SetCookie adds or updates a single cookie in .ephemeral.
 func SetCookie(name, value string) error {
 	cookies, err := LoadCookies()
 	if err != nil {

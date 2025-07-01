@@ -3,13 +3,14 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/jedib0t/go-pretty/v6/text"
-	jtd "github.com/jsontypedef/json-typedef-go"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jedib0t/go-pretty/v6/text"
+	jtd "github.com/jsontypedef/json-typedef-go"
 
 	"github.com/jedib0t/go-pretty/v6/progress"
 	"github.com/moshe5745/localpost/util"
@@ -34,7 +35,7 @@ func TestCmd() *cobra.Command {
 				os.Exit(1)
 			}
 			if env.Login != nil && env.Login.Request != "" {
-				_, err := util.HandleRequest(env.Login.Request, false)
+				_, err := util.HandleRequest(env.Login.Request, true, false)
 				if err != nil {
 					fmt.Printf("Error executing login request %s: %v\n", env.Login.Request, err)
 					os.Exit(1)
@@ -89,7 +90,7 @@ func TestCmd() *cobra.Command {
 						defer wg.Done()
 
 						// Execute request
-						resp, err := util.HandleRequest(fn, false)
+						resp, err := util.HandleRequest(fn, true, false)
 						if err != nil {
 							mu.Lock()
 							failed = true
@@ -101,7 +102,7 @@ func TestCmd() *cobra.Command {
 						}
 
 						// Validate schema
-						schemaPath := filepath.Join(util.SchemasDir, fn+".jtd.json")
+						schemaPath := filepath.Join(fn + ".jtd.json")
 						schemaData, err := os.ReadFile(schemaPath)
 						if err != nil {
 							mu.Lock()
